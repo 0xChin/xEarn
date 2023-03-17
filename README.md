@@ -4,6 +4,7 @@ Implementation of a cross-chain yield aggregator using [Connext Network](https:/
 Project made for [ETHGlobal "Scaling Ethereum" hackathon](https://ethglobal.com/events/scaling2023)
 
 ### WIP - Concept
-![image](https://user-images.githubusercontent.com/77933451/225801048-3e1cfc02-9bdc-487e-b31e-2ac397f1abc2.png)
-![image](https://user-images.githubusercontent.com/77933451/225801105-8fee01d8-d6de-4073-b240-a927e3238e4f.png)
+<img src="https://user-images.githubusercontent.com/77933451/225802876-3509c422-5194-449a-8c41-4b03386871ad.png" width="750" height="1000" />
+
+
 
