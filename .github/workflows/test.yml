@@ -56,8 +56,9 @@ jobs:
       - name: "Create env file"
         run: |
           touch .env
-          echo MAINNET_RPC="${{ secrets.MAINNET_RPC }}" >> .env
-          echo RINKEBY_RPC="${{ secrets.RINKEBY_RPC }}" >> .env
+          echo POLYGON_RPC="${{ secrets.POLYGON_RPC }}" >> .env
+          echo ARBITRUM_RPC="${{ secrets.ARBITRUM_RPC }}" >> .env
+          echo OPTIMISM_RPC="${{ secrets.OPTIMISM_RPC }}" >> .env
           cat .env
 
       - name: Run tests

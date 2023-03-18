@@ -28,5 +28,6 @@ fuzz_runs = 5000
 src = 'solidity/test'
 
 [rpc_endpoints]
-mainnet = "${MAINNET_RPC}"
-rinkeby = "${RINKEBY_RPC}"
+polygon = "${POLYGON_RPC}"
+arbitrum = "${ARBITRUM_RPC}"
+optimism = "${OPTIMISM_RPC}" 
