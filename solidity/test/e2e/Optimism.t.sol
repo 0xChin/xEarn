@@ -5,6 +5,9 @@ import {DSTestFull} from 'test/utils/DSTestFull.sol';
 import {console} from 'forge-std/console.sol';
 import {IERC20} from 'isolmate/interfaces/tokens/IERC20.sol';
 import {IERC4626} from 'interfaces/tokens/IERC4626.sol';
+import {IWETH9} from 'interfaces/tokens/IWETH9.sol';
+
+import {VaultManager} from 'contracts/VaultManager.sol';
 
 contract E2EOptimismVaults is DSTestFull {
   uint256 internal constant _FORK_BLOCK = 82_066_571;
@@ -13,17 +16,27 @@ contract E2EOptimismVaults is DSTestFull {
   address internal _usdtVaultAddress = _label(0xFaee21D0f0Af88EE72BB6d68E54a90E6EC2616de, 'Yearn: USDT Vault');
   address internal _user = _label('user');
 
+  address internal _weth9Address = _label(0x4200000000000000000000000000000000000006, 'WETH9');
+  address internal _swapRouterAddress = _label(0xE592427A0AEce92De3Edee1F18E0157C05861564, 'Uniswap: Swap Router');
+
   function setUp() public {
     vm.startPrank(_user);
     vm.createSelectFork(vm.rpcUrl('optimism'), _FORK_BLOCK);
-    deal(_usdtAddress, _user, 1 ether);
   }
 
-  function test_Usdt_Deposit() public {
-    IERC20 _usdt = IERC20(_usdtAddress);
-    IERC4626 _usdtVault = IERC4626(_usdtVaultAddress);
+  function test_Token_Deposit() public {
+    vm.deal(_user, 1 ether);
 
-    _usdt.approve(_usdtVaultAddress, type(uint256).max);
-    _usdtVault.deposit();
+    IWETH9 _weth9 = IWETH9(_weth9Address);
+
+    VaultManager _vaultManager = new VaultManager(
+            _weth9Address,
+            _swapRouterAddress
+        );
+
+    _weth9.deposit{value: 1 ether}();
+    _weth9.approve(address(_vaultManager), 1 ether);
+
+    _vaultManager.deposit(1 ether, _usdtAddress, _usdtVaultAddress, 3000);
   }
 }
