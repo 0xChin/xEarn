@@ -2,9 +2,9 @@
 pragma solidity >=0.8.4 <0.9.0;
 
 import {console} from 'forge-std/console.sol';
-import {PRBTest} from 'prb/test/PRBTest.sol';
+import {Test} from 'forge-std/test.sol';
 
-contract DSTestFull is PRBTest {
+contract DSTestFull is Test {
   // Seed for the generation of pseudorandom addresses
   bytes32 private _nextAddressSeed = keccak256(abi.encodePacked('address'));
 
