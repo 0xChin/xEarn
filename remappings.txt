@@ -2,7 +2,10 @@ ds-test/=lib/ds-test/src
 prb/test/=lib/prb-test/src/
 forge-std/=lib/forge-std/src
 isolmate/=lib/isolmate/src
+v3-periphery/=lib/v3-periphery/contracts/
+v3-core/=lib/v3-core/contracts/
 
 contracts/=solidity/contracts
 interfaces/=solidity/interfaces
+libraries/=solidity/libraries
 test/=solidity/test
