@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.4 <0.9.0;
 
+import {Ownable} from 'openzeppelin-contracts/access/Ownable.sol';
+
 import {IERC20} from 'isolmate/interfaces/tokens/IERC20.sol';
 import {IWETH9} from 'interfaces/tokens/IWETH9.sol';
 import {IERC4626} from 'interfaces/tokens/IERC4626.sol';
@@ -13,7 +15,7 @@ import {SwapHelper} from 'libraries/SwapHelper.sol';
 import {CurveHelper} from 'libraries/CurveHelper.sol';
 import {WETH9Helper} from 'libraries/WETH9Helper.sol';
 
-contract VaultManager is IXReceiver {
+contract VaultManager is Ownable, IXReceiver {
   address public immutable WETH_ADDRESS;
   address public immutable SWAP_ROUTER_ADDRESS;
 
@@ -61,5 +63,13 @@ contract VaultManager is IXReceiver {
 
     IERC20(_token).approve(_vault, _amountOut);
     _shares = IERC4626(_vault).deposit();
+  }
+
+  function addToAllowlist(uint32 origin, address _address) external onlyOwner {
+    originsAllowlist[origin][_address] = true;
+  }
+
+  function removeFromAllowlist(uint32 origin, address _address) external onlyOwner {
+    delete originsAllowlist[origin][_address];
   }
 }
