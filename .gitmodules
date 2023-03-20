@@ -22,3 +22,7 @@
 	path = lib/v3-periphery
 	url = https://github.com/uniswap/v3-periphery
 	branch = v1.3.0
+[submodule "lib/interfaces"]
+	path = lib/interfaces
+	url = https://github.com/connext/interfaces
+	branch = v2.0.1
