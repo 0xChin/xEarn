@@ -4,6 +4,7 @@ forge-std/=lib/forge-std/src
 isolmate/=lib/isolmate/src
 v3-periphery/=lib/v3-periphery/contracts/
 v3-core/=lib/v3-core/contracts/
+connext/=lib/interfaces/core
 
 contracts/=solidity/contracts
 interfaces/=solidity/interfaces
