@@ -8,15 +8,15 @@ import {IERC20} from 'isolmate/interfaces/tokens/IERC20.sol';
 library CurveHelper {
   function addCurveLiquidity(
     address _pool,
-    address _poolToken,
+    address _lpToken,
     address _token,
     uint256 _amount
   ) internal returns (uint256 _amountOut) {
-    TransferHelper.safeApprove(address(_token), _pool, _amount);
+    TransferHelper.safeApprove(_token, _pool, _amount);
 
     uint256[3] memory _amounts = [0, 0, _amount];
     ICurveCryptoSwap(_pool).add_liquidity(_amounts, 0);
 
-    _amountOut = IERC20(_poolToken).balanceOf(address(this));
+    _amountOut = IERC20(_lpToken).balanceOf(address(this));
   }
 }
