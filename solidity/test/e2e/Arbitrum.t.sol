@@ -38,6 +38,6 @@ contract E2EArbitrumVaults is DSTestFull {
     _weth9.deposit{value: 1 ether}();
     _weth9.approve(address(_vaultManager), 1 ether);
 
-    _vaultManager.deposit(1 ether, _tricryptoTokenAddress, _tricryptoPoolAddress, _tricryptoVaultAddress);
+    _vaultManager.deposit(1 ether, _tricryptoTokenAddress, _tricryptoVaultAddress, _tricryptoPoolAddress);
   }
 }
