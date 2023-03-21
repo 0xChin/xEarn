@@ -60,25 +60,33 @@ contract VaultManager is Ownable, IXReceiver, OriginsAllowlist {
     if (msg.sender != CONNEXT) revert NotConnextRouter();
     if (!allowlist[_origin][_originSender]) revert WrongOrigin();
 
-    (address _msgSender, address _token, address _vault, bytes32 _canChange, OperationType _operationType) =
+    (address _msgSender, address _token, address _vault, bytes32 _data1, OperationType _operationType) =
       abi.decode(_callData, (address, address, address, bytes32, OperationType));
 
     if (_operationType == OperationType.DepositToken) {
       if (_asset != WETH_ADDRESS) revert WrongAsset();
       if (_amount == 0) revert WrongAmount();
 
+      uint24 _poolFee = uint24(uint256(_data1));
+
       WETH9Helper.pullEthFromSender(_amount, WETH_ADDRESS);
-      _deposit(_amount, _token, _vault, uint24(uint256(_canChange)), _msgSender);
+      _deposit(_amount, _token, _vault, _poolFee, _msgSender);
     } else if (_operationType == OperationType.DepositCurveLP) {
       if (_asset != WETH_ADDRESS) revert WrongAsset();
       if (_amount == 0) revert WrongAmount();
 
       WETH9Helper.pullEthFromSender(_amount, WETH_ADDRESS);
-      _deposit(_amount, _token, _vault, address(uint160(uint256(_canChange))), _msgSender);
+      address _pool = address(uint160(uint256(_data1)));
+
+      _deposit(_amount, _token, _vault, _pool, _msgSender);
     } else if (_operationType == OperationType.WithdrawToken) {
-      _withdraw(_token, _vault, uint24(uint256(_canChange)), _msgSender);
+      uint24 _poolFee = uint24(uint256(_data1));
+
+      _withdraw(_token, _vault, _poolFee, _msgSender);
     } else {
-      _withdraw(_vault, address(uint160(uint256(_canChange))), _msgSender);
+      address _pool = address(uint160(uint256(_data1)));
+
+      _withdraw(_vault, _pool, _msgSender);
     }
 
     emit XReceived(_transferId);
