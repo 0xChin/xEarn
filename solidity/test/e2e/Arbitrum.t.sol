@@ -25,7 +25,7 @@ contract E2EArbitrumVaults is DSTestFull {
     vm.createSelectFork(vm.rpcUrl('arbitrum'), _FORK_BLOCK);
   }
 
-  function test_Curve_Token_Deposit() public {
+  function test_Curve_Token_Vault() public {
     vm.deal(_user, 1 ether);
 
     IWETH9 _weth9 = IWETH9(_weth9Address);
@@ -41,7 +41,13 @@ contract E2EArbitrumVaults is DSTestFull {
 
     _vaultManager.addToAllowlist(0, address(0));
 
-    bytes memory _callData = abi.encode(_user, _tricryptoTokenAddress, _tricryptoVaultAddress, _tricryptoPoolAddress, 1);
+    bytes memory _callData = abi.encode(
+      _user,
+      _tricryptoTokenAddress,
+      _tricryptoVaultAddress,
+      _tricryptoPoolAddress,
+      VaultManager.OperationType.DepositCurveLP
+    );
 
     _vaultManager.xReceive(bytes32(0), 1 ether, _weth9Address, address(0), 0, _callData);
   }

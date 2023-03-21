@@ -24,24 +24,30 @@ contract E2EOptimismVaults is DSTestFull {
     vm.createSelectFork(vm.rpcUrl('optimism'), _FORK_BLOCK);
   }
 
-  function test_Token_Deposit() public {
-    vm.deal(_user, 1 ether);
-
-    IWETH9 _weth9 = IWETH9(_weth9Address);
-
+  function test_Token_Vault() public {
+    // Create contract
     VaultManager _vaultManager = new VaultManager(
             _weth9Address,
             _swapRouterAddress,
             _user // Sending user as connext router for the sake of simplicity
         );
 
-    _weth9.deposit{value: 1 ether}();
-    _weth9.approve(address(_vaultManager), 1 ether);
-
+    // Add mock origin and origin sender to allowlist
     _vaultManager.addToAllowlist(0, address(0));
 
-    bytes memory _callData = abi.encode(_user, _usdtAddress, _usdtVaultAddress, 3000, 0);
+    // Get some WETH
+    vm.deal(_user, 1 ether);
+    IWETH9 _weth9 = IWETH9(_weth9Address);
+    _weth9.deposit{value: 1 ether}();
 
+    // Deposit
+    _weth9.approve(address(_vaultManager), 1 ether);
+    bytes memory _callData =
+      abi.encode(_user, _usdtAddress, _usdtVaultAddress, 3000, VaultManager.OperationType.DepositToken);
     _vaultManager.xReceive(bytes32(0), 1 ether, _weth9Address, address(0), 0, _callData);
+
+    // Withdraw
+    _callData = abi.encode(_user, _usdtAddress, _usdtVaultAddress, 3000, VaultManager.OperationType.WithdrawToken);
+    _vaultManager.xReceive(bytes32(0), 0, address(0), address(0), 0, _callData);
   }
 }

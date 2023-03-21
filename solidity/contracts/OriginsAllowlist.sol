@@ -14,8 +14,10 @@ contract OriginsAllowlist is Ownable {
 
   function addToAllowlist(uint32[] memory _origins, address[] memory _senders) external onlyOwner {
     if (_origins.length != _senders.length) revert WrongLength();
-    for (uint256 i = 0; i < _origins.length; i++) {
-      allowlist[_origins[i]][_senders[i]] = true;
+    unchecked {
+      for (uint256 _i = 0; _i < _origins.length; _i++) {
+        allowlist[_origins[_i]][_senders[_i]] = true;
+      }
     }
   }
 
@@ -25,8 +27,10 @@ contract OriginsAllowlist is Ownable {
 
   function removeFromAllowlist(uint32[] memory _origins, address[] memory _senders) external onlyOwner {
     if (_origins.length != _senders.length) revert WrongLength();
-    for (uint256 i = 0; i < _origins.length; i++) {
-      delete allowlist[_origins[i]][_senders[i]];
+    unchecked {
+      for (uint256 _i = 0; _i < _origins.length; _i++) {
+        delete allowlist[_origins[_i]][_senders[_i]];
+      }
     }
   }
 }

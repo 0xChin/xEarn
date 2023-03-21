@@ -15,8 +15,31 @@ library SwapHelper {
     TransferHelper.safeApprove(address(_weth), _swapRouter, _amount);
 
     ISwapRouter.ExactInputSingleParams memory _params = ISwapRouter.ExactInputSingleParams({
-      tokenIn: address(_weth),
+      tokenIn: _weth,
       tokenOut: _token,
+      fee: _poolFee,
+      recipient: address(this),
+      deadline: block.timestamp,
+      amountIn: _amount,
+      amountOutMinimum: 0,
+      sqrtPriceLimitX96: 0
+    });
+
+    _amountOut = ISwapRouter(_swapRouter).exactInputSingle(_params);
+  }
+
+  function swapTokenForEth(
+    address _token,
+    uint256 _amount,
+    uint24 _poolFee,
+    address _weth,
+    address _swapRouter
+  ) internal returns (uint256 _amountOut) {
+    TransferHelper.safeApprove(address(_token), _swapRouter, _amount);
+
+    ISwapRouter.ExactInputSingleParams memory _params = ISwapRouter.ExactInputSingleParams({
+      tokenIn: _token,
+      tokenOut: _weth,
       fee: _poolFee,
       recipient: address(this),
       deadline: block.timestamp,

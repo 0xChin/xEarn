@@ -26,6 +26,9 @@ contract VaultManager is Ownable, IXReceiver, OriginsAllowlist {
 
   mapping(address => mapping(address => uint256)) public shares;
 
+  event Deposit(address indexed _owner, address indexed _vault, uint256 indexed shares);
+  event Withdraw(address indexed _owner, address indexed _vault, uint256 indexed shares);
+
   error WrongAmount();
   error WrongAsset();
   error WrongOrigin();
@@ -33,7 +36,9 @@ contract VaultManager is Ownable, IXReceiver, OriginsAllowlist {
 
   enum OperationType {
     DepositToken,
-    DepositCurveLP
+    DepositCurveLP,
+    WithdrawToken,
+    WithdrawCurveLP
   }
 
   constructor(address _weth9, address _swapRouter, address _connext) {
@@ -53,24 +58,33 @@ contract VaultManager is Ownable, IXReceiver, OriginsAllowlist {
     uint32 _origin,
     bytes memory _callData
   ) external returns (bytes memory) {
-    if (_amount == 0) revert WrongAmount();
     if (msg.sender != CONNEXT) revert NotConnextRouter();
-    if (_asset != WETH_ADDRESS) revert WrongAsset();
     if (!allowlist[_origin][_originSender]) revert WrongOrigin();
-    WETH9Helper.pullEthFromSender(_amount, WETH_ADDRESS);
 
     (address _msgSender, address _token, address _vault, bytes32 _canChange, OperationType _operationType) =
       abi.decode(_callData, (address, address, address, bytes32, OperationType));
 
-    uint256 _shares;
-
     if (_operationType == OperationType.DepositToken) {
-      _shares = _deposit(_amount, _token, _vault, uint24(uint256(_canChange)));
-    } else {
-      _shares = _deposit(_amount, _token, _vault, address(uint160(uint256(_canChange))));
-    }
+      if (_asset != WETH_ADDRESS) revert WrongAsset();
+      if (_amount == 0) revert WrongAmount();
 
-    shares[_msgSender][_vault] += _shares;
+      WETH9Helper.pullEthFromSender(_amount, WETH_ADDRESS);
+      uint256 _shares = _deposit(_amount, _token, _vault, uint24(uint256(_canChange)));
+      shares[_msgSender][_vault] += _shares;
+
+      emit Deposit(_msgSender, _vault, _shares);
+    } else if (_operationType == OperationType.DepositCurveLP) {
+      if (_asset != WETH_ADDRESS) revert WrongAsset();
+      if (_amount == 0) revert WrongAmount();
+
+      WETH9Helper.pullEthFromSender(_amount, WETH_ADDRESS);
+      uint256 _shares = _deposit(_amount, _token, _vault, address(uint160(uint256(_canChange))));
+      shares[_msgSender][_vault] += _shares;
+
+      emit Deposit(_msgSender, _vault, _shares);
+    } else if (_operationType == OperationType.WithdrawToken) {
+      _withdraw(_token, _vault, uint24(uint256(_canChange)), _msgSender);
+    }
   }
 
   function _deposit(
@@ -90,5 +104,17 @@ contract VaultManager is Ownable, IXReceiver, OriginsAllowlist {
 
     IERC20(_token).approve(_vault, _amountOut);
     _shares = IERC4626(_vault).deposit();
+  }
+
+  function _withdraw(
+    address _token,
+    address _vault,
+    uint24 _poolFee,
+    address _msgSender
+  ) internal returns (uint256 _shares) {
+    _shares = IERC4626(_vault).withdraw();
+
+    uint256 _amountOut = SwapHelper.swapTokenForEth(_token, _shares, _poolFee, WETH_ADDRESS, SWAP_ROUTER_ADDRESS);
+    WETH.transfer(_msgSender, _amountOut);
   }
 }
