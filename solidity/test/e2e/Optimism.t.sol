@@ -31,12 +31,17 @@ contract E2EOptimismVaults is DSTestFull {
 
     VaultManager _vaultManager = new VaultManager(
             _weth9Address,
-            _swapRouterAddress
+            _swapRouterAddress,
+            _user // Sending user as connext router for the sake of simplicity
         );
 
     _weth9.deposit{value: 1 ether}();
     _weth9.approve(address(_vaultManager), 1 ether);
 
-    _vaultManager.deposit(1 ether, _usdtAddress, _usdtVaultAddress, 3000);
+    _vaultManager.addToAllowlist(0, address(0));
+
+    bytes memory _callData = abi.encode(_user, _usdtAddress, _usdtVaultAddress, 3000, 0);
+
+    _vaultManager.xReceive(bytes32(0), 1 ether, _weth9Address, address(0), 0, _callData);
   }
 }
