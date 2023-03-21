@@ -6,7 +6,7 @@ import {ICurveCryptoSwap} from 'interfaces/peripherals/ICurveCryptoSwap.sol';
 import {IERC20} from 'isolmate/interfaces/tokens/IERC20.sol';
 
 library CurveHelper {
-  function addCurveLiquidity(
+  function addLiquidity(
     address _pool,
     address _lpToken,
     address _token,
@@ -18,5 +18,11 @@ library CurveHelper {
     ICurveCryptoSwap(_pool).add_liquidity(_amounts, 0);
 
     _amountOut = IERC20(_lpToken).balanceOf(address(this));
+  }
+
+  function removeLiquidity(address _pool, address _token, uint256 _amount) internal returns (uint256 _amountOut) {
+    ICurveCryptoSwap(_pool).remove_liquidity_one_coin(_amount, 2, 0);
+
+    _amountOut = IERC20(_token).balanceOf(address(this));
   }
 }

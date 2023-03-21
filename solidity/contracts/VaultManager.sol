@@ -26,8 +26,7 @@ contract VaultManager is Ownable, IXReceiver, OriginsAllowlist {
 
   mapping(address => mapping(address => uint256)) public shares;
 
-  event Deposit(address indexed _owner, address indexed _vault, uint256 indexed shares);
-  event Withdraw(address indexed _owner, address indexed _vault, uint256 indexed shares);
+  event XReceived(bytes32 indexed _transferId);
 
   error WrongAmount();
   error WrongAsset();
@@ -69,41 +68,50 @@ contract VaultManager is Ownable, IXReceiver, OriginsAllowlist {
       if (_amount == 0) revert WrongAmount();
 
       WETH9Helper.pullEthFromSender(_amount, WETH_ADDRESS);
-      uint256 _shares = _deposit(_amount, _token, _vault, uint24(uint256(_canChange)));
-      shares[_msgSender][_vault] += _shares;
-
-      emit Deposit(_msgSender, _vault, _shares);
+      _deposit(_amount, _token, _vault, uint24(uint256(_canChange)), _msgSender);
     } else if (_operationType == OperationType.DepositCurveLP) {
       if (_asset != WETH_ADDRESS) revert WrongAsset();
       if (_amount == 0) revert WrongAmount();
 
       WETH9Helper.pullEthFromSender(_amount, WETH_ADDRESS);
-      uint256 _shares = _deposit(_amount, _token, _vault, address(uint160(uint256(_canChange))));
-      shares[_msgSender][_vault] += _shares;
-
-      emit Deposit(_msgSender, _vault, _shares);
+      _deposit(_amount, _token, _vault, address(uint160(uint256(_canChange))), _msgSender);
     } else if (_operationType == OperationType.WithdrawToken) {
       _withdraw(_token, _vault, uint24(uint256(_canChange)), _msgSender);
+    } else {
+      _withdraw(_vault, address(uint160(uint256(_canChange))), _msgSender);
     }
+
+    emit XReceived(_transferId);
   }
 
   function _deposit(
     uint256 _amount,
     address _token,
     address _vault,
-    uint24 _poolFee
+    uint24 _poolFee,
+    address _msgSender
   ) internal returns (uint256 _shares) {
     uint256 _amountOut = SwapHelper.swapEthForToken(_token, _amount, _poolFee, WETH_ADDRESS, SWAP_ROUTER_ADDRESS);
 
     IERC20(_token).approve(_vault, _amountOut);
     _shares = IERC4626(_vault).deposit();
+
+    shares[_msgSender][_vault] += _shares;
   }
 
-  function _deposit(uint256 _amount, address _token, address _vault, address _pool) internal returns (uint256 _shares) {
-    uint256 _amountOut = CurveHelper.addCurveLiquidity(_pool, _token, WETH_ADDRESS, _amount);
+  function _deposit(
+    uint256 _amount,
+    address _token,
+    address _vault,
+    address _pool,
+    address _msgSender
+  ) internal returns (uint256 _shares) {
+    uint256 _amountOut = CurveHelper.addLiquidity(_pool, _token, WETH_ADDRESS, _amount);
 
     IERC20(_token).approve(_vault, _amountOut);
     _shares = IERC4626(_vault).deposit();
+
+    shares[_msgSender][_vault] += _shares;
   }
 
   function _withdraw(
@@ -112,9 +120,21 @@ contract VaultManager is Ownable, IXReceiver, OriginsAllowlist {
     uint24 _poolFee,
     address _msgSender
   ) internal returns (uint256 _shares) {
-    _shares = IERC4626(_vault).withdraw();
+    _shares = IERC4626(_vault).withdraw(shares[_msgSender][_vault]);
 
     uint256 _amountOut = SwapHelper.swapTokenForEth(_token, _shares, _poolFee, WETH_ADDRESS, SWAP_ROUTER_ADDRESS);
     WETH.transfer(_msgSender, _amountOut);
+
+    delete shares[_msgSender][_vault];
+  }
+
+  function _withdraw(address _vault, address _pool, address _msgSender) internal returns (uint256 _shares) {
+    _shares = IERC4626(_vault).withdraw(shares[_msgSender][_vault]);
+
+    uint256 _amountOut = CurveHelper.removeLiquidity(_pool, WETH_ADDRESS, _shares);
+
+    WETH.transfer(_msgSender, _amountOut);
+
+    delete shares[_msgSender][_vault];
   }
 }

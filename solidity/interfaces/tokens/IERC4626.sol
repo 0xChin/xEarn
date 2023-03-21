@@ -38,6 +38,8 @@ interface IERC4626 {
 
   function withdraw() external returns (uint256 _shares);
 
+  function withdraw(uint256 _assets) external returns (uint256 _shares);
+
   function withdraw(uint256 _assets, address _receiver, address _owner) external returns (uint256 _shares);
 
   function maxRedeem(address _owner) external view returns (uint256 _maxShares);
