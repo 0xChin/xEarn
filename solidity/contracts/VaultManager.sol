@@ -10,6 +10,7 @@ import {IERC4626} from 'interfaces/tokens/IERC4626.sol';
 import {ISwapRouter} from 'interfaces/peripherals/ISwapRouter.sol';
 import {ICurveCryptoSwap} from 'interfaces/peripherals/ICurveCryptoSwap.sol';
 import {IXReceiver} from 'connext/IXReceiver.sol';
+import {IConnext} from 'connext/IConnext.sol';
 
 import {TransferHelper} from 'libraries/TransferHelper.sol';
 import {SwapHelper} from 'libraries/SwapHelper.sol';
@@ -19,10 +20,11 @@ import {WETH9Helper} from 'libraries/WETH9Helper.sol';
 contract VaultManager is Ownable, IXReceiver, OriginsAllowlist {
   address public immutable WETH_ADDRESS;
   address public immutable SWAP_ROUTER_ADDRESS;
-  address public immutable CONNEXT;
+  address public immutable CONNEXT_ADDRESS;
 
   IWETH9 public immutable WETH;
   ISwapRouter public immutable SWAP_ROUTER;
+  IConnext public immutable CONNEXT;
 
   mapping(address => mapping(address => uint256)) public shares;
 
@@ -43,12 +45,21 @@ contract VaultManager is Ownable, IXReceiver, OriginsAllowlist {
   constructor(address _weth9, address _swapRouter, address _connext) {
     WETH_ADDRESS = _weth9;
     SWAP_ROUTER_ADDRESS = _swapRouter;
-    CONNEXT = _connext;
+    CONNEXT_ADDRESS = _connext;
 
     WETH = IWETH9(_weth9);
     SWAP_ROUTER = ISwapRouter(_swapRouter);
+    CONNEXT = IConnext(_connext);
   }
 
+  /// @notice Key function of the contract
+  /// @dev Receives connext calls, enables interoperability
+  /// @param _transferId Transfer ID
+  /// @param _amount Amount of asset received
+  /// @param _asset Address of token received
+  /// @param _originSender Address of caller in the other origin
+  /// @param _origin Domain ID AKA chain/rollup identifier
+  /// @param _callData Calldata
   function xReceive(
     bytes32 _transferId,
     uint256 _amount,
@@ -57,34 +68,38 @@ contract VaultManager is Ownable, IXReceiver, OriginsAllowlist {
     uint32 _origin,
     bytes memory _callData
   ) external returns (bytes memory) {
-    if (msg.sender != CONNEXT) revert NotConnextRouter();
+    if (msg.sender != CONNEXT_ADDRESS) revert NotConnextRouter();
     if (!allowlist[_origin][_originSender]) revert WrongOrigin();
 
-    (address _msgSender, address _token, address _vault, bytes32 _data1, OperationType _operationType) =
-      abi.decode(_callData, (address, address, address, bytes32, OperationType));
+    /// @param _msgSender End user that made the call
+    /// @param _vault Vault address
+    /// @param _data Either pool fee or a Curve pool address
+    /// @param _operationType Type of operation: Deposit/Withdrawal and type of asset: Token/Curve LP
+    (address _msgSender, address _vault, bytes32 _data, OperationType _operationType) =
+      abi.decode(_callData, (address, address, bytes32, OperationType));
 
     if (_operationType == OperationType.DepositToken) {
       if (_asset != WETH_ADDRESS) revert WrongAsset();
       if (_amount == 0) revert WrongAmount();
 
-      uint24 _poolFee = uint24(uint256(_data1));
+      uint24 _poolFee = uint24(uint256(_data));
 
       WETH9Helper.pullEthFromSender(_amount, WETH_ADDRESS);
-      _deposit(_amount, _token, _vault, _poolFee, _msgSender);
+      _deposit(_amount, _vault, _poolFee, _msgSender);
     } else if (_operationType == OperationType.DepositCurveLP) {
       if (_asset != WETH_ADDRESS) revert WrongAsset();
       if (_amount == 0) revert WrongAmount();
 
       WETH9Helper.pullEthFromSender(_amount, WETH_ADDRESS);
-      address _pool = address(uint160(uint256(_data1)));
+      address _pool = address(uint160(uint256(_data)));
 
-      _deposit(_amount, _token, _vault, _pool, _msgSender);
+      _deposit(_amount, _vault, _pool, _msgSender);
     } else if (_operationType == OperationType.WithdrawToken) {
-      uint24 _poolFee = uint24(uint256(_data1));
+      uint24 _poolFee = uint24(uint256(_data));
 
-      _withdraw(_token, _vault, _poolFee, _msgSender);
+      _withdraw(_vault, _poolFee, _msgSender);
     } else {
-      address _pool = address(uint160(uint256(_data1)));
+      address _pool = address(uint160(uint256(_data)));
 
       _withdraw(_vault, _pool, _msgSender);
     }
@@ -94,41 +109,43 @@ contract VaultManager is Ownable, IXReceiver, OriginsAllowlist {
 
   function _deposit(
     uint256 _amount,
-    address _token,
     address _vault,
     uint24 _poolFee,
     address _msgSender
   ) internal returns (uint256 _shares) {
+    IERC4626 vault = IERC4626(_vault);
+    address _token = vault.token();
+
     uint256 _amountOut = SwapHelper.swapEthForToken(_token, _amount, _poolFee, WETH_ADDRESS, SWAP_ROUTER_ADDRESS);
 
     IERC20(_token).approve(_vault, _amountOut);
-    _shares = IERC4626(_vault).deposit();
+    _shares = vault.deposit();
 
     shares[_msgSender][_vault] += _shares;
   }
 
   function _deposit(
     uint256 _amount,
-    address _token,
     address _vault,
     address _pool,
     address _msgSender
   ) internal returns (uint256 _shares) {
+    IERC4626 vault = IERC4626(_vault);
+    address _token = vault.token();
+
     uint256 _amountOut = CurveHelper.addLiquidity(_pool, _token, WETH_ADDRESS, _amount);
 
     IERC20(_token).approve(_vault, _amountOut);
-    _shares = IERC4626(_vault).deposit();
+    _shares = vault.deposit();
 
     shares[_msgSender][_vault] += _shares;
   }
 
-  function _withdraw(
-    address _token,
-    address _vault,
-    uint24 _poolFee,
-    address _msgSender
-  ) internal returns (uint256 _shares) {
-    _shares = IERC4626(_vault).withdraw(shares[_msgSender][_vault]);
+  function _withdraw(address _vault, uint24 _poolFee, address _msgSender) internal returns (uint256 _shares) {
+    IERC4626 vault = IERC4626(_vault);
+    address _token = vault.token();
+
+    _shares = vault.withdraw(shares[_msgSender][_vault]);
 
     uint256 _amountOut = SwapHelper.swapTokenForEth(_token, _shares, _poolFee, WETH_ADDRESS, SWAP_ROUTER_ADDRESS);
     WETH.transfer(_msgSender, _amountOut);
@@ -137,7 +154,9 @@ contract VaultManager is Ownable, IXReceiver, OriginsAllowlist {
   }
 
   function _withdraw(address _vault, address _pool, address _msgSender) internal returns (uint256 _shares) {
-    _shares = IERC4626(_vault).withdraw(shares[_msgSender][_vault]);
+    IERC4626 vault = IERC4626(_vault);
+
+    _shares = vault.withdraw(shares[_msgSender][_vault]);
 
     uint256 _amountOut = CurveHelper.removeLiquidity(_pool, WETH_ADDRESS, _shares);
 

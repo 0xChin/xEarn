@@ -12,7 +12,6 @@ import {VaultManager} from 'contracts/VaultManager.sol';
 contract E2EOptimismVaults is DSTestFull {
   uint256 internal constant _FORK_BLOCK = 82_066_571;
 
-  address internal _usdtAddress = _label(0x94b008aA00579c1307B0EF2c499aD98a8ce58e58, 'ERC20: USDT');
   address internal _usdtVaultAddress = _label(0xFaee21D0f0Af88EE72BB6d68E54a90E6EC2616de, 'Yearn: USDT Vault');
   address internal _user = _label('user');
 
@@ -42,12 +41,11 @@ contract E2EOptimismVaults is DSTestFull {
 
     // Deposit
     _weth9.approve(address(_vaultManager), 1 ether);
-    bytes memory _callData =
-      abi.encode(_user, _usdtAddress, _usdtVaultAddress, 3000, VaultManager.OperationType.DepositToken);
+    bytes memory _callData = abi.encode(_user, _usdtVaultAddress, 3000, VaultManager.OperationType.DepositToken);
     _vaultManager.xReceive(bytes32(0), 1 ether, _weth9Address, address(0), 0, _callData);
 
     // Withdraw
-    _callData = abi.encode(_user, _usdtAddress, _usdtVaultAddress, 3000, VaultManager.OperationType.WithdrawToken);
+    _callData = abi.encode(_user, _usdtVaultAddress, 3000, VaultManager.OperationType.WithdrawToken);
     _vaultManager.xReceive(bytes32(0), 0, address(0), address(0), 0, _callData);
   }
 }

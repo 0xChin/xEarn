@@ -5,6 +5,13 @@ import {TransferHelper} from 'libraries/TransferHelper.sol';
 import {ISwapRouter} from 'interfaces/peripherals/ISwapRouter.sol';
 
 library SwapHelper {
+  /// @notice Swaps WETH for any token
+  /// @param _token Token to get
+  /// @param _amount Amount of ETH to swap
+  /// @param _poolFee Pool fee
+  /// @param _weth WETH address
+  /// @param _swapRouter Swap Router address
+  /// @return _amountOut Tokens received after swap
   function swapEthForToken(
     address _token,
     uint256 _amount,
@@ -28,6 +35,13 @@ library SwapHelper {
     _amountOut = ISwapRouter(_swapRouter).exactInputSingle(_params);
   }
 
+  /// @notice Swaps any token for WETH\
+  /// @param _token Token to send
+  /// @param _amount Amount to swap
+  /// @param _poolFee Pool fee
+  /// @param _weth WETH address
+  /// @param _swapRouter Swap Router address
+  /// @return _amountOut WETH received after swap
   function swapTokenForEth(
     address _token,
     uint256 _amount,
