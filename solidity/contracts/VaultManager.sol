@@ -74,7 +74,7 @@ contract VaultManager is Ownable, IXReceiver, OriginsAllowlist {
     uint32 _origin,
     bytes memory _callData
   ) external returns (bytes memory) {
-    /* if (msg.sender != CONNEXT_ADDRESS) revert NotConnextRouter(); */
+    if (msg.sender != CONNEXT_ADDRESS) revert NotConnextRouter();
     if (!allowlist[_origin][_originSender]) revert WrongOrigin();
 
     /// @param _msgSender End user that made the call
@@ -90,13 +90,11 @@ contract VaultManager is Ownable, IXReceiver, OriginsAllowlist {
 
       uint24 _poolFee = uint24(uint256(_data));
 
-      WETH9Helper.pullEthFromSender(_amount, WETH_ADDRESS);
       _deposit(_amount, _vault, _poolFee, _msgSender);
     } else if (_operationType == OperationType.DepositCurveLP) {
       if (_asset != WETH_ADDRESS) revert WrongAsset();
       if (_amount == 0) revert WrongAmount();
 
-      WETH9Helper.pullEthFromSender(_amount, WETH_ADDRESS);
       address _pool = address(uint160(uint256(_data)));
 
       _deposit(_amount, _vault, _pool, _msgSender);
@@ -111,6 +109,8 @@ contract VaultManager is Ownable, IXReceiver, OriginsAllowlist {
     }
 
     emit XReceived(_transferId);
+
+    return abi.encode('');
   }
 
   function _deposit(
@@ -163,11 +163,11 @@ contract VaultManager is Ownable, IXReceiver, OriginsAllowlist {
       (SwapHelper.swapTokenForEth(_token, _shares, _poolFee, WETH_ADDRESS, SWAP_ROUTER_ADDRESS) - _relayerFee);
 
     WETH.withdraw(_relayerFee);
-    WETH.approve(CONNEXT_ADDRESS, _amountOut);
+    WETH.transfer(CONNEXT_ADDRESS, _amountOut);
 
-    /* CONNEXT.xcall{value: _relayerFee}(
+    CONNEXT.xcall{value: _relayerFee}(
       _destinationDomain, _msgSender, WETH_ADDRESS, _msgSender, _amountOut, 10_000, bytes('')
-    ); */
+    );
 
     delete shares[_msgSender][_vault];
   }
@@ -186,11 +186,11 @@ contract VaultManager is Ownable, IXReceiver, OriginsAllowlist {
     uint256 _amountOut = (CurveHelper.removeLiquidity(_pool, WETH_ADDRESS, _shares) - _relayerFee);
 
     WETH.withdraw(_relayerFee);
-    WETH.approve(CONNEXT_ADDRESS, _amountOut);
+    WETH.transfer(CONNEXT_ADDRESS, _amountOut);
 
-    /* CONNEXT.xcall{value: _relayerFee}(
+    CONNEXT.xcall{value: _relayerFee}(
       _destinationDomain, _msgSender, WETH_ADDRESS, _msgSender, _amountOut, 10_000, bytes('')
-    ); */
+    );
 
     delete shares[_msgSender][_vault];
   }

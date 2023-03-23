@@ -9,7 +9,7 @@ contract ConnextHandlerForTest {
 
   constructor() {
     // TODO: set in constructor
-    origin = 1111;
+    origin = 1_886_350_457;
   }
 
   function xcall(
@@ -21,16 +21,18 @@ contract ConnextHandlerForTest {
     uint256, // _slippage, slippage in bps
     bytes calldata _callData // to be executed on _to on the destination domain
   ) external payable returns (bytes32) {
-    IERC20(_asset).approve(_to, _amount);
+    IERC20(_asset).transfer(_to, _amount);
 
-    IXReceiver(_to).xReceive({
-      _transferId: 0,
-      _amount: _amount,
-      _asset: _asset,
-      _originSender: msg.sender,
-      _origin: origin,
-      _callData: _callData
-    });
+    if (_callData.length > 0) {
+      IXReceiver(_to).xReceive({
+        _transferId: 0,
+        _amount: _amount,
+        _asset: _asset,
+        _originSender: address(this),
+        _origin: 1_886_350_457,
+        _callData: _callData
+      });
+    }
 
     return bytes32(abi.encode('random'));
   }

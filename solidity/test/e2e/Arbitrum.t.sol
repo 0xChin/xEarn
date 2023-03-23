@@ -40,7 +40,7 @@ contract E2EArbitrumVaults is DSTestFull {
         );
 
     // Add mock origin and origin sender to allowlist
-    _vaultManager.addToAllowlist(1111, _user);
+    _vaultManager.addToAllowlist(1_886_350_457, address(_connext));
 
     // Get some WETH
     vm.deal(_user, 1 ether);
@@ -48,17 +48,16 @@ contract E2EArbitrumVaults is DSTestFull {
     _weth9.deposit{value: 1 ether}();
 
     // Deposit
-    _weth9.approve(address(_connext), 1 ether);
+    _weth9.transfer(address(_connext), 1 ether);
     bytes memory _callData =
       abi.encode(_user, _tricryptoVaultAddress, _tricryptoPoolAddress, 0, VaultManager.OperationType.DepositCurveLP);
 
     _connext.xcall(0, address(_vaultManager), _weth9Address, address(0), 1 ether, 0, _callData);
-    _vaultManager.xReceive(bytes32(0), 1 ether, _weth9Address, address(0), 0, _callData);
 
     // Withdraw
     _callData = abi.encode(
       _user, _tricryptoVaultAddress, _tricryptoPoolAddress, 0.3 ether, VaultManager.OperationType.WithdrawCurveLP
     );
-    _vaultManager.xReceive(bytes32(0), 0, address(0), address(0), 0, _callData);
+    _connext.xcall(0, address(_vaultManager), _weth9Address, address(0), 0, 0, _callData);
   }
 }
