@@ -42,7 +42,7 @@ interface IERC4626 {
 
   function withdraw(uint256 _assets, address _receiver, address _owner) external returns (uint256 _shares);
 
-  function token() external view returns (address);
+  function token() external view returns (address _token);
 
   function maxRedeem(address _owner) external view returns (uint256 _maxShares);
 

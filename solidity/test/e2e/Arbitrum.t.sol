@@ -7,7 +7,9 @@ import {console} from 'forge-std/console.sol';
 import {IERC20} from 'isolmate/interfaces/tokens/IERC20.sol';
 import {IERC4626} from 'interfaces/tokens/IERC4626.sol';
 import {IWETH9} from 'interfaces/tokens/IWETH9.sol';
+
 import {VaultManager} from 'contracts/VaultManager.sol';
+import {ConnextHandlerForTest} from 'for-test/ConnextHandlerForTest.sol';
 
 contract E2EArbitrumVaults is DSTestFull {
   uint256 internal constant _FORK_BLOCK = 71_296_637;
@@ -26,15 +28,19 @@ contract E2EArbitrumVaults is DSTestFull {
   }
 
   function test_Curve_Token_Vault() public {
+    // Create mock connext handler
+    ConnextHandlerForTest _connext = new ConnextHandlerForTest();
+
     // Create contract
     VaultManager _vaultManager = new VaultManager(
             _weth9Address,
             _swapRouterAddress,
-            _user // Sending user as connext router for the sake of simplicity
+            address(_connext),
+            uint32(1886350457) // Polygon domain
         );
 
     // Add mock origin and origin sender to allowlist
-    _vaultManager.addToAllowlist(0, address(0));
+    _vaultManager.addToAllowlist(1111, _user);
 
     // Get some WETH
     vm.deal(_user, 1 ether);
@@ -42,14 +48,17 @@ contract E2EArbitrumVaults is DSTestFull {
     _weth9.deposit{value: 1 ether}();
 
     // Deposit
-    _weth9.approve(address(_vaultManager), 1 ether);
+    _weth9.approve(address(_connext), 1 ether);
     bytes memory _callData =
-      abi.encode(_user, _tricryptoVaultAddress, _tricryptoPoolAddress, VaultManager.OperationType.DepositCurveLP);
+      abi.encode(_user, _tricryptoVaultAddress, _tricryptoPoolAddress, 0, VaultManager.OperationType.DepositCurveLP);
+
+    _connext.xcall(0, address(_vaultManager), _weth9Address, address(0), 1 ether, 0, _callData);
     _vaultManager.xReceive(bytes32(0), 1 ether, _weth9Address, address(0), 0, _callData);
 
     // Withdraw
-    _callData =
-      abi.encode(_user, _tricryptoVaultAddress, _tricryptoPoolAddress, VaultManager.OperationType.WithdrawCurveLP);
+    _callData = abi.encode(
+      _user, _tricryptoVaultAddress, _tricryptoPoolAddress, 0.3 ether, VaultManager.OperationType.WithdrawCurveLP
+    );
     _vaultManager.xReceive(bytes32(0), 0, address(0), address(0), 0, _callData);
   }
 }
