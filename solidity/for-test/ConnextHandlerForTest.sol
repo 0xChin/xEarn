@@ -7,9 +7,8 @@ import {IERC20} from 'isolmate/interfaces/tokens/IERC20.sol';
 contract ConnextHandlerForTest {
   uint32 public origin;
 
-  constructor() {
-    // TODO: set in constructor
-    origin = 1_886_350_457;
+  constructor(uint32 _origin) {
+    origin = _origin;
   }
 
   function xcall(
@@ -29,7 +28,7 @@ contract ConnextHandlerForTest {
         _amount: _amount,
         _asset: _asset,
         _originSender: address(this),
-        _origin: 1_886_350_457,
+        _origin: origin,
         _callData: _callData
       });
     }
