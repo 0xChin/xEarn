@@ -2,7 +2,6 @@
 pragma solidity >=0.8.4 <0.9.0;
 
 import {Ownable} from 'openzeppelin-contracts/access/Ownable.sol';
-import {OriginsAllowlist} from 'contracts/OriginsAllowlist.sol';
 
 import {IERC20} from 'isolmate/interfaces/tokens/IERC20.sol';
 import {IWETH9} from 'interfaces/tokens/IWETH9.sol';
@@ -17,7 +16,7 @@ import {SwapHelper} from 'libraries/SwapHelper.sol';
 import {CurveHelper} from 'libraries/CurveHelper.sol';
 import {WETH9Helper} from 'libraries/WETH9Helper.sol';
 
-contract VaultManager is Ownable, IXReceiver, OriginsAllowlist {
+contract VaultManager is Ownable, IXReceiver {
   uint32 public immutable MAIN_CHAIN;
 
   address public immutable WETH_ADDRESS;
@@ -59,24 +58,22 @@ contract VaultManager is Ownable, IXReceiver, OriginsAllowlist {
   /// @dev Receives connext calls, enables interoperability
   /// @param _amount Amount of asset received
   /// @param _asset Address of token received
-  /// @param _originSender Address of caller in the other origin
-  /// @param _origin Domain ID AKA chain/rollup identifier
   /// @param _callData Calldata
   function xReceive(
-    bytes32, // Transfer id
+    bytes32,
     uint256 _amount,
     address _asset,
-    address _originSender,
-    uint32 _origin,
+    address,
+    uint32,
     bytes memory _callData
-  ) external onlyExecutor(_origin, _originSender) returns (bytes memory) {
+  ) external returns (bytes memory) {
     /// @param _msgSender End user that made the call
     /// @param _vault Vault address
     /// @param _data Either pool fee or a Curve pool address
     /// @param _relayerFee Relayer fee used if withdrawing
     /// @param _operationType Type of operation: Deposit/Withdrawal and type of asset: Token/Curve LP
-    (address _msgSender, address _vault, bytes32 _data, uint256 _relayerFee, OperationType _operationType) =
-      abi.decode(_callData, (address, address, bytes32, uint256, OperationType));
+    (address _msgSender, address _vault, uint256 _relayerFee, bytes32 _data, OperationType _operationType) =
+      abi.decode(_callData, (address, address, uint256, bytes32, OperationType));
 
     if (_operationType == OperationType.DepositToken) {
       if (_asset != WETH_ADDRESS) revert WrongAsset();
@@ -95,11 +92,11 @@ contract VaultManager is Ownable, IXReceiver, OriginsAllowlist {
     } else if (_operationType == OperationType.WithdrawToken) {
       uint24 _poolFee = uint24(uint256(_data));
 
-      _withdraw(_vault, _poolFee, _msgSender, _relayerFee, _origin);
+      _withdraw(_vault, _poolFee, _msgSender, _relayerFee);
     } else {
       address _pool = address(uint160(uint256(_data)));
 
-      _withdraw(_vault, _pool, _msgSender, _relayerFee, _origin);
+      _withdraw(_vault, _pool, _msgSender, _relayerFee);
     }
 
     return abi.encode('');
@@ -143,8 +140,7 @@ contract VaultManager is Ownable, IXReceiver, OriginsAllowlist {
     address _vault,
     uint24 _poolFee,
     address _msgSender,
-    uint256 _relayerFee,
-    uint32 _destinationDomain
+    uint256 _relayerFee
   ) internal returns (uint256 _shares) {
     IERC4626 vault = IERC4626(_vault);
     address _token = vault.token();
@@ -157,9 +153,7 @@ contract VaultManager is Ownable, IXReceiver, OriginsAllowlist {
     WETH.withdraw(_relayerFee);
     WETH.transfer(CONNEXT_ADDRESS, _amountOut);
 
-    CONNEXT.xcall{value: _relayerFee}(
-      _destinationDomain, _msgSender, WETH_ADDRESS, _msgSender, _amountOut, 10_000, bytes('')
-    );
+    CONNEXT.xcall{value: _relayerFee}(MAIN_CHAIN, _msgSender, WETH_ADDRESS, _msgSender, _amountOut, 10_000, bytes(''));
 
     delete shares[_msgSender][_vault];
   }
@@ -168,8 +162,7 @@ contract VaultManager is Ownable, IXReceiver, OriginsAllowlist {
     address _vault,
     address _pool,
     address _msgSender,
-    uint256 _relayerFee,
-    uint32 _destinationDomain
+    uint256 _relayerFee
   ) internal returns (uint256 _shares) {
     IERC4626 vault = IERC4626(_vault);
 
@@ -180,16 +173,9 @@ contract VaultManager is Ownable, IXReceiver, OriginsAllowlist {
     WETH.withdraw(_relayerFee);
     WETH.transfer(CONNEXT_ADDRESS, _amountOut);
 
-    CONNEXT.xcall{value: _relayerFee}(
-      _destinationDomain, _msgSender, WETH_ADDRESS, _msgSender, _amountOut, 10_000, bytes('')
-    );
+    CONNEXT.xcall{value: _relayerFee}(MAIN_CHAIN, _msgSender, WETH_ADDRESS, _msgSender, _amountOut, 10_000, bytes(''));
 
     delete shares[_msgSender][_vault];
-  }
-
-  modifier onlyExecutor(uint32 _origin, address _originSender) {
-    if (msg.sender != CONNEXT_ADDRESS || !allowlist[_origin][_originSender]) revert UnauthorizedCaller();
-    _;
   }
 
   receive() external payable {
