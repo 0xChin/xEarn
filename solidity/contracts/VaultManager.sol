@@ -30,12 +30,9 @@ contract VaultManager is Ownable, IXReceiver, OriginsAllowlist {
 
   mapping(address => mapping(address => uint256)) public shares;
 
-  event XReceived(bytes32 indexed _transferId);
-
   error WrongAmount();
   error WrongAsset();
-  error WrongOrigin();
-  error NotConnextRouter();
+  error UnauthorizedCaller();
 
   enum OperationType {
     DepositToken,
@@ -60,26 +57,23 @@ contract VaultManager is Ownable, IXReceiver, OriginsAllowlist {
 
   /// @notice Key function of the contract
   /// @dev Receives connext calls, enables interoperability
-  /// @param _transferId Transfer ID
   /// @param _amount Amount of asset received
   /// @param _asset Address of token received
   /// @param _originSender Address of caller in the other origin
   /// @param _origin Domain ID AKA chain/rollup identifier
   /// @param _callData Calldata
   function xReceive(
-    bytes32 _transferId,
+    bytes32, // Transfer id
     uint256 _amount,
     address _asset,
     address _originSender,
     uint32 _origin,
     bytes memory _callData
-  ) external returns (bytes memory) {
-    if (msg.sender != CONNEXT_ADDRESS) revert NotConnextRouter();
-    if (!allowlist[_origin][_originSender]) revert WrongOrigin();
-
+  ) external onlyExecutor(_origin, _originSender) returns (bytes memory) {
     /// @param _msgSender End user that made the call
     /// @param _vault Vault address
     /// @param _data Either pool fee or a Curve pool address
+    /// @param _relayerFee Relayer fee used if withdrawing
     /// @param _operationType Type of operation: Deposit/Withdrawal and type of asset: Token/Curve LP
     (address _msgSender, address _vault, bytes32 _data, uint256 _relayerFee, OperationType _operationType) =
       abi.decode(_callData, (address, address, bytes32, uint256, OperationType));
@@ -107,8 +101,6 @@ contract VaultManager is Ownable, IXReceiver, OriginsAllowlist {
 
       _withdraw(_vault, _pool, _msgSender, _relayerFee, _origin);
     }
-
-    emit XReceived(_transferId);
 
     return abi.encode('');
   }
@@ -193,6 +185,11 @@ contract VaultManager is Ownable, IXReceiver, OriginsAllowlist {
     );
 
     delete shares[_msgSender][_vault];
+  }
+
+  modifier onlyExecutor(uint32 _origin, address _originSender) {
+    if (msg.sender != CONNEXT_ADDRESS || !allowlist[_origin][_originSender]) revert UnauthorizedCaller();
+    _;
   }
 
   receive() external payable {
