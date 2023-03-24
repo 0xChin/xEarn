@@ -10,7 +10,7 @@ contract XEarn {
   IConnext public immutable connext;
   IWETH9 public immutable weth;
 
-  constructor(address _connext, address _weth9) {
+  constructor(address _weth9, address _connext) {
     connext = IConnext(_connext);
     weth = IWETH9(_weth9);
   }
