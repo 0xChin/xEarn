@@ -19,13 +19,9 @@ import {WETH9Helper} from 'libraries/WETH9Helper.sol';
 contract VaultManager is Ownable, IXReceiver {
   uint32 public immutable MAIN_CHAIN;
 
-  address public immutable WETH_ADDRESS;
-  address public immutable SWAP_ROUTER_ADDRESS;
-  address public immutable CONNEXT_ADDRESS;
-
-  IWETH9 public immutable WETH;
-  ISwapRouter public immutable SWAP_ROUTER;
-  IConnext public immutable CONNEXT;
+  IWETH9 public immutable weth;
+  ISwapRouter public immutable swapRouter;
+  IConnext public immutable connext;
 
   mapping(address => mapping(address => uint256)) public shares;
 
@@ -43,15 +39,11 @@ contract VaultManager is Ownable, IXReceiver {
   constructor(address _weth9, address _swapRouter, address _connext, uint32 _mainChain) {
     MAIN_CHAIN = _mainChain;
 
-    WETH_ADDRESS = _weth9;
-    SWAP_ROUTER_ADDRESS = _swapRouter;
-    CONNEXT_ADDRESS = _connext;
+    weth = IWETH9(_weth9);
+    swapRouter = ISwapRouter(_swapRouter);
+    connext = IConnext(_connext);
 
-    WETH = IWETH9(_weth9);
-    SWAP_ROUTER = ISwapRouter(_swapRouter);
-    CONNEXT = IConnext(_connext);
-
-    WETH.approve(_weth9, type(uint256).max);
+    weth.approve(_weth9, type(uint256).max);
   }
 
   /// @notice Key function of the contract
@@ -76,14 +68,14 @@ contract VaultManager is Ownable, IXReceiver {
       abi.decode(_callData, (address, address, uint256, bytes32, OperationType));
 
     if (_operationType == OperationType.DepositToken) {
-      if (_asset != WETH_ADDRESS) revert WrongAsset();
+      if (_asset != address(weth)) revert WrongAsset();
       if (_amount == 0) revert WrongAmount();
 
       uint24 _poolFee = uint24(uint256(_data));
 
       _deposit(_amount, _vault, _poolFee, _msgSender);
     } else if (_operationType == OperationType.DepositCurveLP) {
-      if (_asset != WETH_ADDRESS) revert WrongAsset();
+      if (_asset != address(weth)) revert WrongAsset();
       if (_amount == 0) revert WrongAmount();
 
       address _pool = address(uint160(uint256(_data)));
@@ -111,7 +103,7 @@ contract VaultManager is Ownable, IXReceiver {
     IERC4626 vault = IERC4626(_vault);
     address _token = vault.token();
 
-    uint256 _amountOut = SwapHelper.swapEthForToken(_token, _amount, _poolFee, WETH_ADDRESS, SWAP_ROUTER_ADDRESS);
+    uint256 _amountOut = SwapHelper.swapEthForToken(_token, _amount, _poolFee, address(weth), address(swapRouter));
 
     IERC20(_token).approve(_vault, _amountOut);
     _shares = vault.deposit();
@@ -128,7 +120,7 @@ contract VaultManager is Ownable, IXReceiver {
     IERC4626 vault = IERC4626(_vault);
     address _token = vault.token();
 
-    uint256 _amountOut = CurveHelper.addLiquidity(_pool, _token, WETH_ADDRESS, _amount);
+    uint256 _amountOut = CurveHelper.addLiquidity(_pool, _token, address(weth), _amount);
 
     IERC20(_token).approve(_vault, _amountOut);
     _shares = vault.deposit();
@@ -148,12 +140,11 @@ contract VaultManager is Ownable, IXReceiver {
     _shares = vault.withdraw(shares[_msgSender][_vault]);
 
     uint256 _amountOut =
-      (SwapHelper.swapTokenForEth(_token, _shares, _poolFee, WETH_ADDRESS, SWAP_ROUTER_ADDRESS) - _relayerFee);
+      (SwapHelper.swapTokenForEth(_token, _shares, _poolFee, address(weth), address(swapRouter)) - _relayerFee);
 
-    WETH.withdraw(_relayerFee);
-    WETH.transfer(CONNEXT_ADDRESS, _amountOut);
-
-    CONNEXT.xcall{value: _relayerFee}(MAIN_CHAIN, _msgSender, WETH_ADDRESS, _msgSender, _amountOut, 10_000, bytes(''));
+    weth.withdraw(_relayerFee);
+    weth.transfer(address(connext), _amountOut);
+    connext.xcall{value: _relayerFee}(MAIN_CHAIN, _msgSender, address(weth), _msgSender, _amountOut, 10_000, bytes(''));
 
     delete shares[_msgSender][_vault];
   }
@@ -168,17 +159,16 @@ contract VaultManager is Ownable, IXReceiver {
 
     _shares = vault.withdraw(shares[_msgSender][_vault]);
 
-    uint256 _amountOut = (CurveHelper.removeLiquidity(_pool, WETH_ADDRESS, _shares) - _relayerFee);
+    uint256 _amountOut = (CurveHelper.removeLiquidity(_pool, address(weth), _shares) - _relayerFee);
 
-    WETH.withdraw(_relayerFee);
-    WETH.transfer(CONNEXT_ADDRESS, _amountOut);
-
-    CONNEXT.xcall{value: _relayerFee}(MAIN_CHAIN, _msgSender, WETH_ADDRESS, _msgSender, _amountOut, 10_000, bytes(''));
+    weth.withdraw(_relayerFee);
+    weth.transfer(address(connext), _amountOut);
+    connext.xcall{value: _relayerFee}(MAIN_CHAIN, _msgSender, address(weth), _msgSender, _amountOut, 10_000, bytes(''));
 
     delete shares[_msgSender][_vault];
   }
 
   receive() external payable {
-    require(msg.sender == WETH_ADDRESS);
+    require(msg.sender == address(weth));
   }
 }
