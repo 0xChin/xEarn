@@ -19,7 +19,9 @@
     "build": "forge build",
     "build:optimized": "FOUNDRY_PROFILE=optimized forge build",
     "coverage": "forge coverage --match-contract Unit",
-    "deploy:mainnet": "bash -c 'source .env && forge script DeployMainnet --rpc-url $MAINNET_RPC --broadcast --private-key $MAINNET_DEPLOYER_PK --verify --etherscan-api-key $ETHERSCAN_API_KEY'",
+    "deploy:arbitrum": "bash -c 'source .env && forge script DeployArbitrum --rpc-url $ARBITRUM_RPC --broadcast --private-key $DEPLOYER_PK'",
+    "deploy:optimism": "bash -c 'source .env && forge script DeployOptimism --rpc-url $OPTIMISM_RPC --broadcast --private-key $DEPLOYER_PK'",
+    "deploy:polygon": "bash -c 'source .env && forge script DeployPolygon --rpc-url $POLYGON_RPC --broadcast --private-key $DEPLOYER_PK'",
     "postinstall": "forge install",
     "lint:check": "yarn lint:sol-tests && yarn lint:sol-logic && forge fmt check",
     "lint:fix": "sort-package-json && forge fmt && yarn lint:sol-tests --fix && yarn lint:sol-logic --fix",
@@ -29,7 +31,10 @@
     "test": "forge test -vvv",
     "test:e2e": "forge test --match-contract E2E -vvv",
     "test:unit": "forge test --match-contract Unit -vvv",
-    "test:unit:deep": "FOUNDRY_FUZZ_RUNS=5000 yarn test:unit"
+    "test:unit:deep": "FOUNDRY_FUZZ_RUNS=5000 yarn test:unit",
+    "verify:arbitrum": "bash -c 'source .env && forge verify-contract 0x5f9edc657a7bFd52B183Dff8c79e66e6F64AE506 solidity/contracts/VaultManager.sol:VaultManager --watch --constructor-args 00000000000000000000000082af49447d8a07e3bd95bd0d56f35241523fbab1000000000000000000000000e592427a0aece92de3edee1f18e0157c05861564000000000000000000000000ee9dec2712cce65174b561151701bf54b99c24c800000000000000000000000000000000000000000000000000000000706f6c79 --verifier-url https://api.arbiscan.io/api --etherscan-api-key $ARBITRUM_ETHERSCAN_API_KEY'",
+    "verify:optimism": "bash -c 'source .env && forge verify-contract 0x10cDb5380BE2683f9E44b16fbaA73171D5DFc568 solidity/contracts/VaultManager.sol:VaultManager --watch --constructor-args 0000000000000000000000004200000000000000000000000000000000000006000000000000000000000000e592427a0aece92de3edee1f18e0157c058615640000000000000000000000008f7492de823025b4cfaab1d34c58963f2af5deda00000000000000000000000000000000000000000000000000000000706f6c79 --chain-id 10 --etherscan-api-key $OPTIMISM_ETHERSCAN_API_KEY'",
+    "verify:polygon": "bash -c 'source .env && forge verify-contract 0x737092c368f02199ff2a94b0db02467a7d1aa2a5 solidity/contracts/xEarn.sol:XEarn --watch --constructor-args 0000000000000000000000007ceb23fd6bc0add59e62ac25578270cff1b9f61900000000000000000000000011984dc4465481512eb5b777e44061c158cf2259 --chain-id 137 --etherscan-api-key $POLYGON_ETHERSCAN_API_KEY'"
   },
   "lint-staged": {
     "*.{js,css,md,ts,sol}": "forge fmt",
