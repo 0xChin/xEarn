@@ -29,7 +29,7 @@ contract E2EArbitrumVaults is DSTestFull {
 
   function test_Curve_Token_Vault() public {
     // Create mock connext handler
-    ConnextHandlerForTest _connext = new ConnextHandlerForTest();
+    ConnextHandlerForTest _connext = new ConnextHandlerForTest(1886350457);
 
     // Create contract
     VaultManager _vaultManager = new VaultManager(
