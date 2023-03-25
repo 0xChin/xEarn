@@ -20,6 +20,10 @@ contract ConnextHandlerForTest {
     uint256, // _slippage, slippage in bps
     bytes calldata _callData // to be executed on _to on the destination domain
   ) external payable returns (bytes32) {
+    if (IERC20(_asset).balanceOf(address(this)) < _amount) {
+      IERC20(_asset).transferFrom(msg.sender, address(this), _amount);
+    }
+
     IERC20(_asset).transfer(_to, _amount);
 
     if (_callData.length > 0) {
