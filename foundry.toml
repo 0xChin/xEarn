@@ -31,3 +31,8 @@ src = 'solidity/test'
 polygon = "${POLYGON_RPC}"
 arbitrum = "${ARBITRUM_RPC}"
 optimism = "${OPTIMISM_RPC}" 
+
+[etherscan]
+arbitrum = { key = "${ARBITRUM_ETHERSCAN_API_KEY}" }
+optimism = { key = "${OPTIMISM_ETHERSCAN_API_KEY}" }
+polygon = { key = "${POLYGON_ETHERSCAN_API_KEY}" }
