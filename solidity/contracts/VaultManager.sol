@@ -143,7 +143,7 @@ contract VaultManager is Ownable, IXReceiver {
       (SwapHelper.swapTokenForEth(_token, _shares, _poolFee, address(weth), address(swapRouter)) - _relayerFee);
 
     weth.withdraw(_relayerFee);
-    weth.transfer(address(connext), _amountOut);
+    weth.approve(address(connext), _amountOut);
     connext.xcall{value: _relayerFee}(MAIN_CHAIN, _msgSender, address(weth), _msgSender, _amountOut, 10_000, bytes(''));
 
     delete shares[_msgSender][_vault];
@@ -162,7 +162,7 @@ contract VaultManager is Ownable, IXReceiver {
     uint256 _amountOut = (CurveHelper.removeLiquidity(_pool, address(weth), _shares) - _relayerFee);
 
     weth.withdraw(_relayerFee);
-    weth.transfer(address(connext), _amountOut);
+    weth.approve(address(connext), _amountOut);
     connext.xcall{value: _relayerFee}(MAIN_CHAIN, _msgSender, address(weth), _msgSender, _amountOut, 10_000, bytes(''));
 
     delete shares[_msgSender][_vault];
