@@ -3,10 +3,13 @@ import styles from "../styles/Home.module.css";
 import {
   useAccount,
   useConnect,
+  useContractWrite,
   useDisconnect,
   useNetwork,
+  usePrepareContractWrite,
   useSwitchNetwork,
 } from "wagmi";
+import { polygon } from "@wagmi/chains";
 import { InjectedConnector } from "wagmi/connectors/injected";
 import { useEffect, useState } from "react";
 import {
@@ -14,6 +17,10 @@ import {
   transformSymbol,
   numberWithCommas,
 } from "../utils/utils";
+import { ethers } from "ethers";
+import XEARN_ABI from "../utils/abi/xEarn.json";
+import VAULT_MANAGER_ABI from "../utils/abi/VaultManager.json";
+import WETH_ABI from "../utils/abi/Weth.json";
 
 export default function Home({ vaults }) {
   const [mounted, setMounted] = useState(false);
@@ -24,31 +31,101 @@ export default function Home({ vaults }) {
   const { disconnect } = useDisconnect();
   const { chain } = useNetwork();
   const { switchNetwork } = useSwitchNetwork();
+  const [depositedAmounts, setDepositedAmounts] = useState({});
 
   const depositedAmount = numberWithCommas(
     vaults
-      .reduce((total, vault) => total + vault.deposited * vault.price, 0)
+      .reduce(
+        (total, vault) =>
+          total +
+          (depositedAmounts[vault.address]
+            ? parseFloat(depositedAmounts[vault.address]) * vault.price
+            : 0),
+        0
+      )
       .toFixed(2)
   );
 
   const OPTIMISM_VAULT_MANAGER = "0x30bb5A1858D1CfE22AF5E028F15dD8450E76FDc3";
   const ARBITRUM_VAULT_MANAGER = "0x305c0C5001f40D8fa21740d1D135Cdbb7Fd97C53";
   const XEARN = "0xed6229CD962413CbcF07C8f9DD8D30607157Fff7";
+  const WETH = "0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619";
 
   const ARBITRUM_NODE_URI =
     "https://arb-mainnet.g.alchemy.com/v2/M4OMAtif3ZSHXjiTa0AT-lb_iKA0Lj3o"; // Plz don't use the api key
   const OPTIMISM_NODE_URI =
     "https://opt-mainnet.g.alchemy.com/v2/xhj3Bj3ukhHn3wUtCt76Bby0AmsUnmWp"; // Plz don't use the api key
 
+  const arbitrumVaultManager = new ethers.Contract(
+    ARBITRUM_VAULT_MANAGER,
+    VAULT_MANAGER_ABI,
+    new ethers.providers.JsonRpcProvider(ARBITRUM_NODE_URI)
+  );
+
+  const optimismVaultManager = new ethers.Contract(
+    OPTIMISM_VAULT_MANAGER,
+    VAULT_MANAGER_ABI,
+    new ethers.providers.JsonRpcProvider(OPTIMISM_NODE_URI)
+  );
+
+  async function getShares(userAddress, vaultAddress, contractInstance) {
+    return (
+      await contractInstance.shares(userAddress, vaultAddress)
+    ).toString();
+  }
+
+  async function fetchDepositedAmounts() {
+    const amounts = {};
+
+    for (const vault of vaults) {
+      const contractInstance =
+        vault.chainId === 10 ? optimismVaultManager : arbitrumVaultManager;
+      const shares = await getShares(address, vault.address, contractInstance);
+      amounts[vault.address] = shares;
+    }
+
+    setDepositedAmounts(amounts);
+  }
+
+  // Move hooks outside of the approve function
+  const { config: approveConfig } = usePrepareContractWrite({
+    address: WETH,
+    abi: WETH_ABI,
+    functionName: "approve",
+    args: [XEARN, ethers.constants.MaxUint256],
+    chainId: polygon.id,
+  });
+
+  const {
+    data: approveData,
+    isLoading: approveIsLoading,
+    write,
+  } = useContractWrite(approveConfig);
+
+  // Update the approve function
+  function approve() {
+    write?.();
+  }
+
   useEffect(() => {
-    if (chain.id !== 137) {
+    if (chain && chain.id !== 137) {
       switchNetwork(137);
     }
-  }, chain);
+  }, [chain]);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (isConnected && address) {
+      fetchDepositedAmounts();
+    }
+  }, [isConnected, address]);
+
+  useEffect(() => {
+    console.log(approveData);
+  }, [approveData]);
 
   return (
     <div className={styles.container}>
@@ -121,6 +198,14 @@ export default function Home({ vaults }) {
           </div>
         </div>
 
+        <button
+          className={styles.approve}
+          disabled={approveIsLoading}
+          onClick={approve}
+        >
+          Approve WETH
+        </button>
+
         <div className={styles.vaults}>
           <h2 className={styles.vaultsText}>All Vaults</h2>
           <table className={styles.table}>
@@ -142,8 +227,17 @@ export default function Home({ vaults }) {
                     </p>
                   </td>
                   <td>{row.apy}%</td>
-                  <td className={row.deposited > 0 ? "" : styles.depositZero}>
-                    {row.deposited.toFixed(2)}
+                  <td
+                    className={
+                      depositedAmounts[row.address] &&
+                      parseFloat(depositedAmounts[row.address]) > 0
+                        ? ""
+                        : styles.depositZero
+                    }
+                  >
+                    {depositedAmounts[row.address]
+                      ? parseFloat(depositedAmounts[row.address]).toFixed(2)
+                      : "0.00"}
                   </td>
                   <td>${numberWithCommas(row.tvl)}</td>
                 </tr>
@@ -174,14 +268,17 @@ export async function getStaticProps() {
 
   const responses = await Promise.all(endpoints.map((url) => fetch(url)));
   const [data1, data2] = await Promise.all(responses.map((res) => res.json()));
-  const combinedData = [...data1, ...data2];
+  const combinedData = [
+    ...data1.map((vault) => ({ ...vault, chainId: 10 })),
+    ...data2.map((vault) => ({ ...vault, chainId: 42161 })),
+  ];
 
   const vaults = combinedData
     .map((vault) => ({
+      address: vault.address,
       token: vault.token.symbol,
       icon: vault.token.icon,
       apy: (vault.apy.net_apy * 100).toFixed(2),
-      deposited: Math.random() > 0.5 ? 10 : 0,
       price: vault.tvl.price,
       tvl: vault.tvl.tvl.toFixed(0),
     }))
