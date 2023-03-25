@@ -9,9 +9,11 @@
     "start": "next start"
   },
   "dependencies": {
+    "ethers": "^5",
     "next": "13.2.4",
     "react": "18.2.0",
-    "react-dom": "18.2.0"
+    "react-dom": "18.2.0",
+    "wagmi": "^0.12.6"
   },
   "devDependencies": {
     "eslint": "8.36.0",

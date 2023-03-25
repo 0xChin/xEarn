@@ -1,27 +1,54 @@
 import Head from "next/head";
-import Image from "next/image";
 import styles from "../styles/Home.module.css";
+import {
+  useAccount,
+  useConnect,
+  useDisconnect,
+  useNetwork,
+  useSwitchNetwork,
+} from "wagmi";
+import { InjectedConnector } from "wagmi/connectors/injected";
+import { useEffect, useState } from "react";
+import {
+  shortenAddress,
+  transformSymbol,
+  numberWithCommas,
+} from "../utils/utils";
 
 export default function Home({ vaults }) {
-  function numberWithCommas(x) {
-    return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  }
-
-  function transformSymbol(symbol) {
-    if (symbol === "crv3crypto") {
-      return "Curve Tricrypto";
-    }
-    if (symbol === "MIM3CRV-f") {
-      return "Curve MIM 3Pool";
-    }
-    return symbol;
-  }
+  const [mounted, setMounted] = useState(false);
+  const { address, isConnected } = useAccount();
+  const { connect } = useConnect({
+    connector: new InjectedConnector(),
+  });
+  const { disconnect } = useDisconnect();
+  const { chain } = useNetwork();
+  const { switchNetwork } = useSwitchNetwork();
 
   const depositedAmount = numberWithCommas(
     vaults
       .reduce((total, vault) => total + vault.deposited * vault.price, 0)
       .toFixed(2)
   );
+
+  const OPTIMISM_VAULT_MANAGER = "0x30bb5A1858D1CfE22AF5E028F15dD8450E76FDc3";
+  const ARBITRUM_VAULT_MANAGER = "0x305c0C5001f40D8fa21740d1D135Cdbb7Fd97C53";
+  const XEARN = "0xed6229CD962413CbcF07C8f9DD8D30607157Fff7";
+
+  const ARBITRUM_NODE_URI =
+    "https://arb-mainnet.g.alchemy.com/v2/M4OMAtif3ZSHXjiTa0AT-lb_iKA0Lj3o"; // Plz don't use the api key
+  const OPTIMISM_NODE_URI =
+    "https://opt-mainnet.g.alchemy.com/v2/xhj3Bj3ukhHn3wUtCt76Bby0AmsUnmWp"; // Plz don't use the api key
+
+  useEffect(() => {
+    if (chain.id !== 137) {
+      switchNetwork(137);
+    }
+  }, chain);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   return (
     <div className={styles.container}>
@@ -71,7 +98,15 @@ export default function Home({ vaults }) {
           width="50"
           className={styles.logoHeader}
         />
-        <button className={styles.connect}>Connect wallet</button>
+        {mounted && isConnected ? (
+          <span onClick={disconnect} className={styles.address}>
+            {shortenAddress(address)}
+          </span>
+        ) : (
+          <button className={styles.connect} onClick={connect}>
+            Connect wallet
+          </button>
+        )}
       </header>
 
       <main className={styles.main}>
@@ -140,7 +175,6 @@ export async function getStaticProps() {
   const responses = await Promise.all(endpoints.map((url) => fetch(url)));
   const [data1, data2] = await Promise.all(responses.map((res) => res.json()));
   const combinedData = [...data1, ...data2];
-  console.log(Math.random());
 
   const vaults = combinedData
     .map((vault) => ({

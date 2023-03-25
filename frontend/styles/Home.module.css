@@ -11,6 +11,16 @@
   border: none;
   background-color: #0d0d0d;
   color: #fff;
+  cursor: pointer;
+}
+
+.address {
+  color: #858584;
+}
+
+.address:hover {
+  color: #0d0d0d;
+  cursor: pointer;
 }
 
 .warning {
