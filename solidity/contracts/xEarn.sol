@@ -5,107 +5,76 @@ import {IConnext} from 'connext/IConnext.sol';
 import {VaultManager} from 'contracts/VaultManager.sol';
 import {IWETH9} from 'interfaces/tokens/IWETH9.sol';
 
-// I call this the anti-access-controls contract. It seems I had issues with my time management during this hackathon so I'm kind of rushing
 contract XEarn {
   IConnext public immutable connext;
   IWETH9 public immutable weth;
+
+  struct DepositArgs {
+    address target;
+    address vault;
+    address curvePool;
+    uint32 destinationDomain;
+    uint24 poolFee;
+    uint256 amount;
+    uint256 relayerFee;
+  }
+
+  struct WithdrawArgs {
+    address target;
+    address vault;
+    address curvePool;
+    uint32 destinationDomain;
+    uint24 poolFee;
+    uint256 amount;
+    uint256 relayerFee;
+    uint256 xRelayerFee;
+  }
 
   constructor(address _weth9, address _connext) {
     connext = IConnext(_connext);
     weth = IWETH9(_weth9);
   }
 
-  function deposit(
-    address _target,
-    uint32 _destinationDomain,
-    uint256 _amount,
-    uint256 _relayerFee,
-    address _vault,
-    uint24 _poolFee
-  ) external payable {
-    weth.transferFrom(msg.sender, address(this), _amount);
-    weth.approve(address(connext), _amount);
+  function deposit(DepositArgs memory args) public payable {
+    weth.transferFrom(msg.sender, address(this), args.amount);
+    weth.approve(address(connext), args.amount);
 
-    bytes memory _callData = abi.encode(msg.sender, _vault, 0, _poolFee, VaultManager.OperationType.DepositToken); // Relayer fee doesn't matter in deposits, just in withdrawals
+    bytes memory _callData;
+    if (args.curvePool == address(0)) {
+      _callData = abi.encode(msg.sender, args.vault, 0, args.poolFee, VaultManager.OperationType.DepositToken);
+    } else {
+      _callData = abi.encode(msg.sender, args.vault, 0, args.curvePool, VaultManager.OperationType.DepositCurveLP);
+    }
 
-    connext.xcall{value: _relayerFee}(
-      _destinationDomain, // _destination: Domain ID of the destination chain
-      _target, // _to: address of the target contract
-      address(weth), // _asset: address of the token contract
-      msg.sender, // _delegate: address that can revert or forceLocal on destination
-      _amount, // _amount: amount of tokens to transfer
-      500, // _slippage: max slippage the user will accept in BPS (e.g. 300 = 3%)
-      _callData // _callData: the encoded calldata to send
+    connext.xcall{value: args.relayerFee}(
+      args.destinationDomain, args.target, address(weth), msg.sender, args.amount, 500, _callData
     );
   }
 
-  function deposit(
-    address _target,
-    uint32 _destinationDomain,
-    uint256 _amount,
-    uint256 _relayerFee,
-    address _vault,
-    address _curvePool
-  ) external payable {
-    weth.transferFrom(msg.sender, address(this), _amount);
-    weth.approve(address(connext), _amount);
+  function withdraw(WithdrawArgs memory args) public payable {
+    bytes memory _callData;
+    if (args.curvePool == address(0)) {
+      _callData =
+        abi.encode(msg.sender, args.vault, args.xRelayerFee, args.poolFee, VaultManager.OperationType.WithdrawToken);
+    } else {
+      _callData =
+        abi.encode(msg.sender, args.vault, args.xRelayerFee, args.curvePool, VaultManager.OperationType.WithdrawCurveLP);
+    }
 
-    bytes memory _callData = abi.encode(msg.sender, _vault, 0, _curvePool, VaultManager.OperationType.DepositCurveLP); // Relayer fee doesn't matter in deposits, just in withdrawals
-
-    connext.xcall{value: _relayerFee}(
-      _destinationDomain, // _destination: Domain ID of the destination chain
-      _target, // _to: address of the target contract
-      address(weth), // _asset: address of the token contract
-      msg.sender, // _delegate: address that can revert or forceLocal on destination
-      _amount, // _amount: amount of tokens to transfer
-      500, // _slippage: max slippage the user will accept in BPS (e.g. 300 = 3%)
-      _callData // _callData: the encoded calldata to send
+    connext.xcall{value: args.relayerFee}(
+      args.destinationDomain, args.target, address(weth), msg.sender, args.amount, 500, _callData
     );
   }
 
-  function withdraw(
-    address _target,
-    uint32 _destinationDomain,
-    uint256 _amount,
-    uint256 _relayerFee,
-    uint256 _xRelayerFee,
-    address _vault,
-    uint24 _poolFee
-  ) external payable {
-    bytes memory _callData =
-      abi.encode(msg.sender, _vault, _xRelayerFee, _poolFee, VaultManager.OperationType.WithdrawToken);
-
-    connext.xcall{value: _relayerFee}(
-      _destinationDomain, // _destination: Domain ID of the destination chain
-      _target, // _to: address of the target contract
-      address(weth), // _asset: address of the token contract
-      msg.sender, // _delegate: address that can revert or forceLocal on destination
-      _amount, // _amount: amount of tokens to transfer
-      500, // _slippage: max slippage the user will accept in BPS (e.g. 300 = 3%)
-      _callData // _callData: the encoded calldata to send
-    );
+  function multiDeposit(DepositArgs[] memory args) external payable {
+    for (uint256 i = 0; i < args.length; i++) {
+      deposit(args[i]);
+    }
   }
 
-  function withdraw(
-    address _target,
-    uint32 _destinationDomain,
-    uint256 _amount,
-    uint256 _relayerFee,
-    uint256 _xRelayerFee,
-    address _vault,
-    address _curvePool
-  ) external payable {
-    bytes memory _callData =
-      abi.encode(msg.sender, _vault, _xRelayerFee, _curvePool, VaultManager.OperationType.WithdrawCurveLP);
-
-    connext.xcall{value: _relayerFee}(
-      _destinationDomain, // _destination: Domain ID of the destination chain
-      _target, // _to: address of the target contract
-      address(weth), // _asset: address of the token contract
-      msg.sender, // _delegate: address that can revert or forceLocal on destination
-      _amount, // _amount: amount of tokens to transfer
-      500, // _slippage: max slippage the user will accept in BPS (e.g. 300 = 3%)
-      _callData // _callData: the encoded calldata to send
-    );
+  function multiWithdraw(WithdrawArgs[] memory args) external payable {
+    for (uint256 i = 0; i < args.length; i++) {
+      withdraw(args[i]);
+    }
   }
 }
