@@ -26,7 +26,7 @@ contract XEarn {
     weth.transferFrom(msg.sender, address(this), _amount);
     weth.approve(address(connext), _amount);
 
-    bytes memory _callData = abi.encode(msg.sender, _vault, _poolFee, 0, VaultManager.OperationType.DepositToken); // Relayer fee doesn't matter in deposits, just in withdrawals
+    bytes memory _callData = abi.encode(msg.sender, _vault, 0, _poolFee, VaultManager.OperationType.DepositToken); // Relayer fee doesn't matter in deposits, just in withdrawals
 
     connext.xcall{value: _relayerFee}(
       _destinationDomain, // _destination: Domain ID of the destination chain
@@ -50,7 +50,7 @@ contract XEarn {
     weth.transferFrom(msg.sender, address(this), _amount);
     weth.approve(address(connext), _amount);
 
-    bytes memory _callData = abi.encode(msg.sender, _vault, _curvePool, 0, VaultManager.OperationType.DepositCurveLP); // Relayer fee doesn't matter in deposits, just in withdrawals
+    bytes memory _callData = abi.encode(msg.sender, _vault, 0, _curvePool, VaultManager.OperationType.DepositCurveLP); // Relayer fee doesn't matter in deposits, just in withdrawals
 
     connext.xcall{value: _relayerFee}(
       _destinationDomain, // _destination: Domain ID of the destination chain
@@ -73,7 +73,7 @@ contract XEarn {
     uint24 _poolFee
   ) external payable {
     bytes memory _callData =
-      abi.encode(msg.sender, _vault, _poolFee, _xRelayerFee, VaultManager.OperationType.WithdrawToken);
+      abi.encode(msg.sender, _vault, _xRelayerFee, _poolFee, VaultManager.OperationType.WithdrawToken);
 
     connext.xcall{value: _relayerFee}(
       _destinationDomain, // _destination: Domain ID of the destination chain
@@ -96,7 +96,7 @@ contract XEarn {
     address _curvePool
   ) external payable {
     bytes memory _callData =
-      abi.encode(msg.sender, _vault, _curvePool, _xRelayerFee, VaultManager.OperationType.WithdrawCurveLP);
+      abi.encode(msg.sender, _vault, _xRelayerFee, _curvePool, VaultManager.OperationType.WithdrawCurveLP);
 
     connext.xcall{value: _relayerFee}(
       _destinationDomain, // _destination: Domain ID of the destination chain
