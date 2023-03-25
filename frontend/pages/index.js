@@ -93,12 +93,12 @@ export default function Home({ vaults }) {
     abi: WETH_ABI,
     functionName: "approve",
     args: [XEARN, ethers.constants.MaxUint256],
-    chainId: polygon.id,
   });
 
   const {
     data: approveData,
     isLoading: approveIsLoading,
+    isSuccess: approveIsSuccess,
     write,
   } = useContractWrite(approveConfig);
 
@@ -180,7 +180,7 @@ export default function Home({ vaults }) {
             {shortenAddress(address)}
           </span>
         ) : (
-          <button className={styles.connect} onClick={connect}>
+          <button className={styles.btn} onClick={connect}>
             Connect wallet
           </button>
         )}
@@ -199,15 +199,26 @@ export default function Home({ vaults }) {
         </div>
 
         <button
-          className={styles.approve}
-          disabled={approveIsLoading}
+          className={`${styles.btn} ${styles.approveBtn}`}
           onClick={approve}
         >
-          Approve WETH
+          {approveIsSuccess
+            ? "WETH Approved"
+            : approveIsLoading
+            ? "Approving..."
+            : "Approve WETH"}
         </button>
 
         <div className={styles.vaults}>
           <h2 className={styles.vaultsText}>All Vaults</h2>
+          <div className={styles.actions}>
+            <button className={`${styles.btn} ${styles.actionBtn}`}>
+              Deposit
+            </button>
+            <button className={`${styles.btn} ${styles.actionBtn}`}>
+              Withdraw
+            </button>
+          </div>
           <table className={styles.table}>
             <thead>
               <tr>

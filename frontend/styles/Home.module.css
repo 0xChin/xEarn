@@ -6,22 +6,28 @@
   margin: auto;
 }
 
-.connect {
-  padding: 10px;
+.btn {
   border: none;
   background-color: #0d0d0d;
   color: #fff;
+  padding: 10px;
   cursor: pointer;
 }
 
-.approve {
-  padding: 10px;
-  border: none;
-  background-color: #0d0d0d;
-  color: #fff;
-  cursor: pointer;
+.approveBtn {
   margin-bottom: 30px;
   margin-left: 10px;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  padding: 5px 30px 40px;
+}
+
+.actionBtn {
+  margin: 0 10px;
+  width: 250px;
 }
 
 .address {
