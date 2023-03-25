@@ -28,6 +28,7 @@ contract VaultManager is Ownable, IXReceiver {
   error WrongAmount();
   error WrongAsset();
   error UnauthorizedCaller();
+  error OnlyWeth();
 
   enum OperationType {
     DepositToken,
@@ -58,7 +59,7 @@ contract VaultManager is Ownable, IXReceiver {
     address,
     uint32,
     bytes memory _callData
-  ) external returns (bytes memory) {
+  ) external onlyConnext returns (bytes memory) {
     /// @param _msgSender End user that made the call
     /// @param _vault Vault address
     /// @param _data Either pool fee or a Curve pool address
@@ -168,7 +169,12 @@ contract VaultManager is Ownable, IXReceiver {
     delete shares[_msgSender][_vault];
   }
 
+  modifier onlyConnext() {
+    if (msg.sender != address(connext)) revert UnauthorizedCaller();
+    _;
+  }
+
   receive() external payable {
-    require(msg.sender == address(weth));
+    if (msg.sender != address(weth)) revert OnlyWeth();
   }
 }
