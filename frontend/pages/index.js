@@ -7,9 +7,9 @@ import {
   useDisconnect,
   useNetwork,
   usePrepareContractWrite,
+  useSigner,
   useSwitchNetwork,
 } from "wagmi";
-import { polygon } from "@wagmi/chains";
 import { InjectedConnector } from "wagmi/connectors/injected";
 import { useEffect, useState } from "react";
 import {
@@ -23,7 +23,10 @@ import VAULT_MANAGER_ABI from "../utils/abi/VaultManager.json";
 import WETH_ABI from "../utils/abi/Weth.json";
 
 export default function Home({ vaults }) {
+  const [depositMode, setDepositMode] = useState(false);
+  const [selectedVaults, setSelectedVaults] = useState({});
   const [mounted, setMounted] = useState(false);
+  const { data: signer } = useSigner();
   const { address, isConnected } = useAccount();
   const { connect } = useConnect({
     connector: new InjectedConnector(),
@@ -38,8 +41,8 @@ export default function Home({ vaults }) {
       .reduce(
         (total, vault) =>
           total +
-          (depositedAmounts[vault.address]
-            ? parseFloat(depositedAmounts[vault.address]) * vault.price
+          (depositedAmounts[vault.address]?.amount
+            ? parseFloat(depositedAmounts[vault.address]?.amount) * vault.price
             : 0),
         0
       )
@@ -55,6 +58,9 @@ export default function Home({ vaults }) {
     "https://arb-mainnet.g.alchemy.com/v2/M4OMAtif3ZSHXjiTa0AT-lb_iKA0Lj3o"; // Plz don't use the api key
   const OPTIMISM_NODE_URI =
     "https://opt-mainnet.g.alchemy.com/v2/xhj3Bj3ukhHn3wUtCt76Bby0AmsUnmWp"; // Plz don't use the api key
+
+  const xEarnContract = new ethers.Contract(XEARN, XEARN_ABI, signer);
+  const wethContract = new ethers.Contract(WETH, WETH_ABI, signer);
 
   const arbitrumVaultManager = new ethers.Contract(
     ARBITRUM_VAULT_MANAGER,
@@ -81,10 +87,13 @@ export default function Home({ vaults }) {
       const contractInstance =
         vault.chainId === 10 ? optimismVaultManager : arbitrumVaultManager;
       const shares = await getShares(address, vault.address, contractInstance);
-      amounts[vault.address] = shares;
-    }
+      amounts[vault.address] = {
+        amount: shares / 10 ** vault.decimals,
+        chainId: vault.chainId,
+      };
 
-    setDepositedAmounts(amounts);
+      setDepositedAmounts(amounts);
+    }
   }
 
   // Move hooks outside of the approve function
@@ -107,6 +116,103 @@ export default function Home({ vaults }) {
     write?.();
   }
 
+  function confirmDeposit() {
+    const selectedVaultsArray = Object.entries(selectedVaults);
+
+    // Build an array of structs for depositArgs
+    const depositArgs = selectedVaultsArray.map(
+      ([address, { amount, chainId }]) => ({
+        target:
+          chainId === 10 ? OPTIMISM_VAULT_MANAGER : ARBITRUM_VAULT_MANAGER,
+        vault: address,
+        curvePool:
+          chainId === 10
+            ? ethers.constants.AddressZero
+            : "0x960ea3e3C7FB317332d990873d354E18d7645590",
+        destinationDomain: chainId === 10 ? 1869640809 : 1634886255,
+        poolFee: 3000,
+        amount: ethers.utils.parseEther(amount),
+        relayerFee: ethers.utils.parseEther("1"),
+      })
+    );
+
+    console.log(depositArgs);
+
+    if (selectedVaultsArray.length === 1) {
+      xEarnContract.deposit(depositArgs[0], {
+        value: ethers.utils.parseEther("1"),
+      });
+    } else {
+      xEarnContract.multiDeposit(depositArgs, {
+        value: ethers.utils.parseEther("1").mul(depositArgs.length),
+      });
+    }
+  }
+
+  function withdrawAll() {
+    const depositedAmountsArray = Object.entries(depositedAmounts);
+
+    const depositedAmountsArrayFiltered = depositedAmountsArray.filter(
+      ([_, { amount }]) => amount !== 0
+    );
+
+    // Build an array of structs for depositArgs
+    const withdrawArgs = depositedAmountsArrayFiltered.map(
+      ([address, { _, chainId }]) => {
+        return {
+          target:
+            chainId === 10 ? OPTIMISM_VAULT_MANAGER : ARBITRUM_VAULT_MANAGER,
+          vault: address,
+          curvePool:
+            chainId === 10
+              ? ethers.constants.AddressZero
+              : "0x960ea3e3C7FB317332d990873d354E18d7645590",
+          destinationDomain: chainId === 10 ? 1869640809 : 1634886255,
+          poolFee: 3000,
+          amount: 0,
+          relayerFee: ethers.utils.parseEther("1"),
+          xRelayerFee: ethers.utils.parseEther("0.00004"),
+        };
+      }
+    );
+
+    xEarnContract.multiWithdraw(withdrawArgs, {
+      value: ethers.utils.parseEther("1").mul(withdrawArgs.length),
+    });
+  }
+
+  function toggleVault(vaultAddress) {
+    setSelectedVaults((prevSelectedVaults) => {
+      if (prevSelectedVaults[vaultAddress]) {
+        const updatedVaults = { ...prevSelectedVaults };
+        delete updatedVaults[vaultAddress];
+        return updatedVaults;
+      } else {
+        return {
+          ...prevSelectedVaults,
+          [vaultAddress]: {
+            amount: prevSelectedVaults[vaultAddress] || "0",
+            chainId: vaults.find((vault) => vault.address === vaultAddress)
+              ?.chainId,
+          },
+        };
+      }
+    });
+  }
+
+  function updateDepositAmount(vaultAddress, amount) {
+    setSelectedVaults((prevSelectedVaults) => {
+      return {
+        ...prevSelectedVaults,
+        [vaultAddress]: {
+          amount,
+          chainId: vaults.find((vault) => vault.address === vaultAddress)
+            ?.chainId,
+        },
+      };
+    });
+  }
+
   useEffect(() => {
     if (chain && chain.id !== 137) {
       switchNetwork(137);
@@ -124,8 +230,8 @@ export default function Home({ vaults }) {
   }, [isConnected, address]);
 
   useEffect(() => {
-    console.log(approveData);
-  }, [approveData]);
+    console.log(depositedAmounts);
+  }, [depositedAmounts]);
 
   return (
     <div className={styles.container}>
@@ -212,25 +318,56 @@ export default function Home({ vaults }) {
         <div className={styles.vaults}>
           <h2 className={styles.vaultsText}>All Vaults</h2>
           <div className={styles.actions}>
-            <button className={`${styles.btn} ${styles.actionBtn}`}>
-              Deposit
-            </button>
-            <button className={`${styles.btn} ${styles.actionBtn}`}>
-              Withdraw
-            </button>
+            <div>
+              <button
+                className={`${styles.btn} ${styles.actionBtn}`}
+                onClick={() => setDepositMode(!depositMode)}
+              >
+                {depositMode ? "Cancel" : "Deposit"}
+              </button>
+              {Object.keys(selectedVaults).length > 0 && (
+                <button
+                  className={`${styles.btn} ${styles.actionBtn}`}
+                  onClick={confirmDeposit}
+                >
+                  Confirm deposit
+                </button>
+              )}
+            </div>
+            <div>
+              <button
+                className={`${styles.btn} ${styles.actionBtn}`}
+                onClick={withdrawAll}
+              >
+                Withdraw all
+              </button>
+            </div>
           </div>
           <table className={styles.table}>
             <thead>
               <tr>
+                {depositMode && <th>Select</th>}
                 <th>Token</th>
                 <th>APY</th>
                 <th>Deposited</th>
                 <th>TVL</th>
+                {depositMode && <th>{"Amount (WETH)"}</th>}
               </tr>
             </thead>
             <tbody>
               {vaults.map((row, index) => (
-                <tr key={index} className={styles.tableRow}>
+                <tr key={index}>
+                  {depositMode && (
+                    <td>
+                      <input
+                        type="checkbox"
+                        onChange={() => toggleVault(row.address)}
+                        checked={selectedVaults[row.address] !== undefined}
+                        className={styles.checkbox}
+                        id={`checkbox-${index}`}
+                      />
+                    </td>
+                  )}
                   <td width="50%" className={styles.tokenRow}>
                     <img src={row.icon} alt={row.token} width="40px" />{" "}
                     <p className={styles.tokenText}>
@@ -240,17 +377,34 @@ export default function Home({ vaults }) {
                   <td>{row.apy}%</td>
                   <td
                     className={
-                      depositedAmounts[row.address] &&
-                      parseFloat(depositedAmounts[row.address]) > 0
+                      depositedAmounts[row.address]?.amount &&
+                      parseFloat(depositedAmounts[row.address]?.amount) > 0
                         ? ""
                         : styles.depositZero
                     }
                   >
-                    {depositedAmounts[row.address]
-                      ? parseFloat(depositedAmounts[row.address]).toFixed(2)
+                    {depositedAmounts[row.address]?.amount
+                      ? parseFloat(
+                          depositedAmounts[row.address]?.amount
+                        ).toFixed(4)
                       : "0.00"}
                   </td>
                   <td>${numberWithCommas(row.tvl)}</td>
+                  {depositMode && (
+                    <td>
+                      <input
+                        type="number"
+                        min="0"
+                        step="any"
+                        placeholder="WETH Amount"
+                        className={styles.input}
+                        value={selectedVaults[row.address]?.amount || ""}
+                        onChange={(e) =>
+                          updateDepositAmount(row.address, e.target.value)
+                        }
+                      />
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -289,9 +443,11 @@ export async function getStaticProps() {
       address: vault.address,
       token: vault.token.symbol,
       icon: vault.token.icon,
+      decimals: vault.token.decimals,
       apy: (vault.apy.net_apy * 100).toFixed(2),
       price: vault.tvl.price,
       tvl: vault.tvl.tvl.toFixed(0),
+      chainId: vault.chainId,
     }))
     .filter((vault) => parseFloat(vault.tvl) > 0);
 

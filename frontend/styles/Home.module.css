@@ -19,9 +19,16 @@
   margin-left: 10px;
 }
 
+.input {
+  border: none;
+  padding: 10px;
+  border-radius: 5px;
+}
+
 .actions {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   padding: 5px 30px 40px;
 }
 
@@ -55,7 +62,7 @@
 .main {
   margin: auto;
   margin-top: 4rem;
-  max-width: 1200px;
+  max-width: 1400px;
 }
 
 .balances {
