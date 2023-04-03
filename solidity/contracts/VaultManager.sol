@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >=0.8.4 <0.9.0;
+pragma solidity 0.8.19;
 
 import {Ownable} from 'openzeppelin-contracts/access/Ownable.sol';
 
+import {IVaultManager} from 'interfaces/IVaultManager.sol';
 import {IERC20} from 'isolmate/interfaces/tokens/IERC20.sol';
 import {IWETH9} from 'interfaces/tokens/IWETH9.sol';
 import {IERC4626} from 'interfaces/tokens/IERC4626.sol';
@@ -16,7 +17,7 @@ import {SwapHelper} from 'libraries/SwapHelper.sol';
 import {CurveHelper} from 'libraries/CurveHelper.sol';
 import {WETH9Helper} from 'libraries/WETH9Helper.sol';
 
-contract VaultManager is Ownable, IXReceiver {
+contract VaultManager is Ownable, IXReceiver, IVaultManager {
   uint32 public immutable MAIN_CHAIN;
 
   IWETH9 public immutable weth;
@@ -24,18 +25,6 @@ contract VaultManager is Ownable, IXReceiver {
   IConnext public immutable connext;
 
   mapping(address => mapping(address => uint256)) public shares;
-
-  error WrongAmount();
-  error WrongAsset();
-  error UnauthorizedCaller();
-  error OnlyWeth();
-
-  enum OperationType {
-    DepositToken,
-    DepositCurveLP,
-    WithdrawToken,
-    WithdrawCurveLP
-  }
 
   constructor(address _weth9, address _swapRouter, address _connext, uint32 _mainChain) {
     MAIN_CHAIN = _mainChain;
@@ -47,11 +36,6 @@ contract VaultManager is Ownable, IXReceiver {
     weth.approve(_weth9, type(uint256).max);
   }
 
-  /// @notice Key function of the contract
-  /// @dev Receives connext calls, enables interoperability
-  /// @param _amount Amount of asset received
-  /// @param _asset Address of token received
-  /// @param _callData Calldata
   function xReceive(
     bytes32,
     uint256 _amount,
@@ -60,11 +44,6 @@ contract VaultManager is Ownable, IXReceiver {
     uint32,
     bytes memory _callData
   ) external onlyConnext returns (bytes memory) {
-    /// @param _msgSender End user that made the call
-    /// @param _vault Vault address
-    /// @param _data Either pool fee or a Curve pool address
-    /// @param _relayerFee Relayer fee used if withdrawing
-    /// @param _operationType Type of operation: Deposit/Withdrawal and type of asset: Token/Curve LP
     (address _msgSender, address _vault, uint256 _relayerFee, bytes32 _data, OperationType _operationType) =
       abi.decode(_callData, (address, address, uint256, bytes32, OperationType));
 

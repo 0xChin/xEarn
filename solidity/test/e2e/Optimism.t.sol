@@ -8,6 +8,7 @@ import {IERC4626} from 'interfaces/tokens/IERC4626.sol';
 import {IWETH9} from 'interfaces/tokens/IWETH9.sol';
 
 import {VaultManager} from 'contracts/VaultManager.sol';
+import {IVaultManager} from 'interfaces/IVaultManager.sol';
 import {ConnextHandlerForTest} from 'for-test/ConnextHandlerForTest.sol';
 
 contract E2EOptimismVaults is DSTestFull {
@@ -43,11 +44,11 @@ contract E2EOptimismVaults is DSTestFull {
 
     // Deposit
     _weth9.transfer(address(_connext), 1 ether);
-    bytes memory _callData = abi.encode(_user, _usdtVaultAddress, 0, 3000, VaultManager.OperationType.DepositToken);
+    bytes memory _callData = abi.encode(_user, _usdtVaultAddress, 0, 3000, IVaultManager.OperationType.DepositToken);
     _connext.xcall(0, address(_vaultManager), _weth9Address, address(0), 1 ether, 0, _callData);
 
     // Withdraw
-    _callData = abi.encode(_user, _usdtVaultAddress, 0.3 ether, 3000, VaultManager.OperationType.WithdrawToken);
+    _callData = abi.encode(_user, _usdtVaultAddress, 0.3 ether, 3000, IVaultManager.OperationType.WithdrawToken);
     _connext.xcall(0, address(_vaultManager), _weth9Address, address(0), 0, 0, _callData);
   }
 }

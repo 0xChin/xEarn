@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.4 <0.9.0;
 
+import {IXearn} from 'interfaces/IXearn.sol';
 import {IConnext} from 'connext/IConnext.sol';
-import {VaultManager} from 'contracts/VaultManager.sol';
+import {IVaultManager} from 'interfaces/IVaultManager.sol';
 import {IWETH9} from 'interfaces/tokens/IWETH9.sol';
 
 contract XEarn {
@@ -41,9 +42,9 @@ contract XEarn {
 
     bytes memory _callData;
     if (args.curvePool == address(0)) {
-      _callData = abi.encode(msg.sender, args.vault, 0, args.poolFee, VaultManager.OperationType.DepositToken);
+      _callData = abi.encode(msg.sender, args.vault, 0, args.poolFee, IVaultManager.OperationType.DepositToken);
     } else {
-      _callData = abi.encode(msg.sender, args.vault, 0, args.curvePool, VaultManager.OperationType.DepositCurveLP);
+      _callData = abi.encode(msg.sender, args.vault, 0, args.curvePool, IVaultManager.OperationType.DepositCurveLP);
     }
 
     connext.xcall{value: args.relayerFee}(
@@ -55,10 +56,11 @@ contract XEarn {
     bytes memory _callData;
     if (args.curvePool == address(0)) {
       _callData =
-        abi.encode(msg.sender, args.vault, args.xRelayerFee, args.poolFee, VaultManager.OperationType.WithdrawToken);
+        abi.encode(msg.sender, args.vault, args.xRelayerFee, args.poolFee, IVaultManager.OperationType.WithdrawToken);
     } else {
-      _callData =
-        abi.encode(msg.sender, args.vault, args.xRelayerFee, args.curvePool, VaultManager.OperationType.WithdrawCurveLP);
+      _callData = abi.encode(
+        msg.sender, args.vault, args.xRelayerFee, args.curvePool, IVaultManager.OperationType.WithdrawCurveLP
+      );
     }
 
     connext.xcall{value: args.relayerFee}(
