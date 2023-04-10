@@ -18,5 +18,13 @@ interface IVaultManager {
   // STATE VARIABLES
 
   function weth() external view returns (IWETH9 _weth);
+
   function connext() external view returns (IConnext _connext);
+
+  // ERRORS
+
+  error WrongAmount();
+  error WrongAsset();
+  error UnauthorizedCaller();
+  error OnlyWeth();
 }

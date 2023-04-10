@@ -40,11 +40,4 @@ interface IXearn {
   function connext() external view returns (IConnext _connext);
 
   function shares(address _owner, address _vault) external view returns (uint256 _amount);
-
-  // ERRORS
-
-  error WrongAmount();
-  error WrongAsset();
-  error UnauthorizedCaller();
-  error OnlyWeth();
 }
